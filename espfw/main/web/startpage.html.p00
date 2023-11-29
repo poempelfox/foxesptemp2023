@@ -1,0 +1,9 @@
+<!DOCTYPE html>
+
+<html><head><title>FoxESPTemp - ESP32 based FoxTemp</title>
+<link rel="stylesheet" href="/css.css">
+</head><body>
+<h1>FoxESPTemp - ESP32 based FoxTemp</h1>
+<noscript>Because JavaScript is disabled in your browser, the values shown will
+ not update automatically - you will need to reload the page to see the current
+ values.<br></noscript>

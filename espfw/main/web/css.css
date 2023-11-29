@@ -1,0 +1,14 @@
+
+body {
+  background-color:#000000;
+  color:#cccccc;
+}
+table, th, td {
+  border:1px solid #aaaaff;
+  border-collapse:collapse;
+  padding:5px;
+}
+th { text-align:left; }
+td { text-align:right; }
+a:link, a:visited, a:hover { color:#ccccff; }
+

@@ -1,0 +1,9 @@
+</select>
+<input type="submit" name="su" value="Execute Action"><br>
+URL for firmware Update:
+<input type="text" name="updateurl" value="https://www.poempelfox.de/espfw/foxesptemp2023.bin">
+</form>
+BE PATIENT after clicking "Flash Firmware Update" - it will take at
+least 30 seconds before the webserver will show any sort of reply.
+</body></html>
+

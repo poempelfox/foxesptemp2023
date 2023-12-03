@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+
+<html><head><title>FoxESPTemp - Admin menu</title>
+<link rel="stylesheet" href="css.css">
+</head><body>
+<h1>FoxESPTemp - Admin menu</h1>
+XXXXXXXXXX
+<h3>Admin-Actions:</h3>
+<form action="adminaction" method="POST">
+Admin-Password:
+<select name="action">
+<option value="flashupdate">Flash Firmware Update</option>
+<option value="reboot" selected>Reboot the Microcontroller</option>
+<option value="forcesht4xheater">Force SHT4x Heater On</option>
+XXXXXXXXXX
+</select>
+<input type="submit" name="su" value="Execute Action"><br>
+URL for firmware Update:
+<input type="text" name="updateurl" value="https://www.poempelfox.de/espfw/foxesptemp2023.bin">
+</form>
+BE PATIENT after clicking "Flash Firmware Update" - it will take at
+least 30 seconds before the webserver will show any sort of reply.
+</body></html>
+

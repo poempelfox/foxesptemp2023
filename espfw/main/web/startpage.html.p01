@@ -1,4 +1,5 @@
-<script type="text/javascript" src="/startpage.js"></script>
+<script type="text/javascript" src="startpage.js"></script>
 <br>The recommended way for using this data in scripts is to query
  <a href="/json">the JSON-output under /json</a>.<br><br>
-Current firmware version:
+</body></html>
+

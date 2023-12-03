@@ -1,0 +1,7 @@
+<h3>Admin-Actions:</h3>
+<form action="adminaction" method="POST">
+Admin-Password:
+<select name="action">
+<option value="flashupdate">Flash Firmware Update</option>
+<option value="reboot" selected>Reboot the Microcontroller</option>
+<option value="forcesht4xheater">Force SHT4x Heater On</option>

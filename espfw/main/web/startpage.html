@@ -1,33 +1,25 @@
 <!DOCTYPE html>
 
 <html><head><title>FoxESPTemp - ESP32 based FoxTemp</title>
-<link rel="stylesheet" href="/css.css">
+<link rel="stylesheet" href="css.css">
 </head><body>
+<div id="adminloginbut"><a href="#adminloginform">Admin Login</a></div>
 <h1>FoxESPTemp - ESP32 based FoxTemp</h1>
+<div id="adminloginform">
+<form action="adminlogin" method="POST">
+Please enter the admin password to access the admin menu:<br><br>
+<input type="password" name="adminpw"><br><br>
+<input type="submit" name="submit" value="Log In">&nbsp;&nbsp;&nbsp;
+<a href="#">[Cancel]</a><br><br>
+Note: this will only work if you accept cookies.
+</form>
+</div>
 <noscript>Because JavaScript is disabled in your browser, the values shown will
  not update automatically - you will need to reload the page to see the current
  values.<br></noscript>
 XXXXXXXXXX
-<script type="text/javascript" src="/startpage.js"></script>
+<script type="text/javascript" src="startpage.js"></script>
 <br>The recommended way for using this data in scripts is to query
  <a href="/json">the JSON-output under /json</a>.<br><br>
-Current firmware version:
-XXXXXXXXXX
-<h3>Admin-Actions:</h3>
-<form action="/adminaction" method="POST">
-Admin-Password:
-<input type="text" name="updatepw">
-<select name="action">
-<option value="flashupdate">Flash Firmware Update</option>
-<option value="reboot" selected>Reboot the Microcontroller</option>
-<option value="forcesht4xheater">Force SHT4x Heater On</option>
-XXXXXXXXXX
-</select>
-<input type="submit" name="su" value="Execute Action"><br>
-URL for firmware Update:
-<input type="text" name="updateurl" value="https://www.poempelfox.de/espfw/foxesptemp2023.bin">
-</form>
-BE PATIENT after clicking "Flash Firmware Update" - it will take at
-least 30 seconds before the webserver will show any sort of reply.
 </body></html>
 

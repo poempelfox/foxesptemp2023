@@ -1,9 +1,19 @@
 <!DOCTYPE html>
 
 <html><head><title>FoxESPTemp - ESP32 based FoxTemp</title>
-<link rel="stylesheet" href="/css.css">
+<link rel="stylesheet" href="css.css">
 </head><body>
+<div id="adminloginbut"><a href="#adminloginform">Admin Login</a></div>
 <h1>FoxESPTemp - ESP32 based FoxTemp</h1>
+<div id="adminloginform">
+<form action="adminlogin" method="POST">
+Please enter the admin password to access the admin menu:<br><br>
+<input type="password" name="adminpw"><br><br>
+<input type="submit" name="submit" value="Log In">&nbsp;&nbsp;&nbsp;
+<a href="#">[Cancel]</a><br><br>
+Note: this will only work if you accept cookies.
+</form>
+</div>
 <noscript>Because JavaScript is disabled in your browser, the values shown will
  not update automatically - you will need to reload the page to see the current
  values.<br></noscript>

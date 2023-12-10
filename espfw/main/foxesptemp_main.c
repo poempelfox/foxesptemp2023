@@ -52,9 +52,6 @@ int forcesht4xheater = 0;
 void app_main(void)
 {
     memset(evs, 0, sizeof(evs));
-    time_t lastmeasts = 0;
-    time_t lastsht4xheat = 0;
-    time_t lastsuccsubmit = 0;
 
     /* This is in all OTA-Update examples, so I consider it mandatory. */
     esp_err_t err = nvs_flash_init();
@@ -80,11 +77,17 @@ void app_main(void)
     vTaskDelay(pdMS_TO_TICKS(3000)); /* Mainly to give the RG15 a chance to */
     /* process our initialization sequence, though that doesn't always work. */
 
+    /* Unfortunately, time does not (always) revert to 0 on an
+     * esp_restart. So we set all timestamps to "now" instead. */
+    time_t lastmeasts = time(NULL);
+    time_t lastsht4xheat = lastmeasts;
+    time_t lastsuccsubmit = lastmeasts;
+
     /* We do NTP to provide useful timestamps in our webserver output. */
-    sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    sntp_setservername(0, "ntp2.fau.de");
-    sntp_setservername(1, "ntp3.fau.de");
-    sntp_init();
+    esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    esp_sntp_setservername(0, "ntp2.fau.de");
+    esp_sntp_setservername(1, "ntp3.fau.de");
+    esp_sntp_init();
 
     /* In case we were OTA-updating, we set this fact in a variable for the
      * webserver. Someone will need to click "Keep this firmware" in the

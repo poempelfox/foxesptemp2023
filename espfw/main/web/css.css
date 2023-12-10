@@ -34,4 +34,17 @@ div#adminloginform {
   padding: 20px;
 }
 div#adminloginform:target { display: block; }
+div#settingsresult {
+  display: none;
+  background-color: #660000;
+  color: #cccc00;
+  border: 1px solid #808080;
+  padding: 8px;
+  text-align: left;
+  position: absolute;
+  top: 10%;
+  left: 10%;
+  margin-right: 10%;
+  width: 80%;
+}
 

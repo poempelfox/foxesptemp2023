@@ -19,6 +19,7 @@ extern long too_wet_ctr;
 extern int forcesht4xheater;
 /* This is in network.c */
 extern esp_netif_t * mainnetif;
+static int settingshavechanged = 0;
 
 /* How many admins can be logged in at the same time? */
 #define MAXADMINLOGINS 3
@@ -54,9 +55,14 @@ extern const uint8_t adminmenu_p2[] asm("_binary_adminmenu_html_p01_start");
 extern const uint8_t adminmenu_p3[] asm("_binary_adminmenu_html_p02_start");
 
 static const char adminmenu_fww[] = R"EOAMFWW(
-<br>A new firmware has been flashed, and booted up - but it has not been marked as &quot;good&quot; yet.
-Unless you mark the new firmware as &quot;good&quot;, on the next reset the old firmware will be
-restored.
+<br><b>A new firmware has been flashed,</b> and booted up (it's currently
+running) - <b>but it has not been marked as &quot;good&quot; yet</b>.
+Unless you mark the new firmware as &quot;good&quot;, on the next reset the old
+firmware will be restored.<br>
+<form action="adminaction" method="POST">
+<input type="hidden" name="action" value="markfwasgood">
+<input type="submit" name="su" value="Mark Firmware as Good"><br>
+</form><br>
 )EOAMFWW";
 
 /********************************************************
@@ -114,8 +120,8 @@ char * createnewauthtoken(void) {
     }
   }
   liadmins[selectedslot].ts = time(NULL);
-  for (int i = 0; i < 64; i++) {
-    liadmins[selectedslot].token[i] = tokchars[esp_random() % sizeof(tokchars)];
+  for (int i = 0; i < 63; i++) {
+    liadmins[selectedslot].token[i] = tokchars[esp_random() % strlen(tokchars)];
   }
   liadmins[selectedslot].token[63] = 0;
   return &(liadmins[selectedslot].token[0]);
@@ -128,15 +134,17 @@ char * createnewauthtoken(void) {
 int checkauthtoken(httpd_req_t * req) {
   expireauthtokens(); // Clears expired ones, so we don't have to test for expiry below
   char tokenfromrequest[64];
-  esp_err_t e = httpd_req_get_cookie_val(req, "authtoken", tokenfromrequest, sizeof(tokenfromrequest));
+  size_t tfrsize = sizeof(tokenfromrequest);
+  esp_err_t e = httpd_req_get_cookie_val(req, "authtoken", tokenfromrequest, &tfrsize);
   if (e != ESP_OK) {
     if (e != ESP_ERR_NOT_FOUND) {
       ESP_LOGW("webserver.c", "WARNING: Shenanigans with authtokens, Error %s on get_cookie_val", esp_err_to_name(e));
     }
     return 0;
   }
+  tokenfromrequest[63] = 0;
   if (strlen(tokenfromrequest) < 63) {
-    ESP_LOGW("webserver.c", "invalid (too short) authtoken submitted by client.");
+    ESP_LOGW("webserver.c", "invalid (too short) authtoken %s submitted by client.", tokenfromrequest);
     return 0;
   }
   for (int i = 0; i < MAXADMINLOGINS; i++) {
@@ -286,27 +294,28 @@ static httpd_uri_t uri_css_css = {
 };
 
 esp_err_t get_adminmenu_handler(httpd_req_t * req) {
-  char myresponse[2300]; /* approx 2000 for the page and 300 for the content we insert below. */
+  char * myresponse; /* This is going to be too large to just put it on the stack. */
   char * pfp;
-  int e = activeevs;
   if (checkauthtoken(req) != 1) {
     httpd_resp_set_status(req, "403 Forbidden");
-    strcpy(myresponse, "Please log in first.");
-    httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, "Please log in first.", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+  }
+  myresponse = calloc(20000, 1); /* FIXME calculate a realistic size */
+  if (myresponse == NULL) {
+    httpd_resp_set_status(req, "500 Internal Server Error");
+    httpd_resp_send(req, "Out of memory.", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
   }
   strcpy(myresponse, adminmenu_p1);
-  pfp = myresponse + strlen(adminmenu_p1);
+  pfp = myresponse + strlen(myresponse);
   const esp_app_desc_t * appd = esp_app_get_description();
   pfp = myresponse + strlen(myresponse);
   pfp += sprintf(pfp, "%s version %s compiled %s %s",
                  appd->project_name, appd->version, appd->date, appd->time);
+  strcat(myresponse, adminmenu_p2);
   if (pendingfwverify > 0) { /* notification that firmware has not been marked as good yet */
     strcat(myresponse, adminmenu_fww);
-  }
-  strcat(myresponse, adminmenu_p2);
-  if (pendingfwverify > 0) {
-    strcat(myresponse, "<option value=\"markfwasgood\">Mark Firmware as Good</option>");
   }
   strcat(myresponse, adminmenu_p3);
   /* The following two lines are the default und thus redundant. */
@@ -314,6 +323,7 @@ esp_err_t get_adminmenu_handler(httpd_req_t * req) {
   httpd_resp_set_type(req, "text/html");
   httpd_resp_set_hdr(req, "Cache-Control", "private, max-age=29");
   httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+  free(myresponse);
   return ESP_OK;
 }
 
@@ -326,36 +336,31 @@ static httpd_uri_t uri_adminmenu = {
 
 esp_err_t post_adminlogin(httpd_req_t * req) {
   char postcontent[600];
-  char myresponse[300];
   char tmp1[600];
   //ESP_LOGI("webserver.c", "POST request with length: %d", req->content_len);
   if (req->content_len >= sizeof(postcontent)) {
     httpd_resp_set_status(req, "500 Internal Server Error");
-    strcpy(myresponse, "Sorry, your request was too large. Try another browser?");
-    httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, "Sorry, your request was too large. Try another browser?", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
   }
   int ret = httpd_req_recv(req, postcontent, req->content_len);
   if (ret < req->content_len) {
     httpd_resp_set_status(req, "500 Internal Server Error");
-    strcpy(myresponse, "Your request was incompletely received.");
-    httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, "Your request was incompletely received.", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
   }
   postcontent[req->content_len] = 0;
   ESP_LOGI("webserver.c", "Received data: '%s'", postcontent);
   if (httpd_query_key_value(postcontent, "adminpw", tmp1, sizeof(tmp1)) != ESP_OK) {
     httpd_resp_set_status(req, "400 Bad Request");
-    strcpy(myresponse, "No adminpw submitted.");
-    httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, "No adminpw submitted.", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
   }
   unescapeuestring(tmp1);
   if (strcmp(tmp1, settings.adminpw) != 0) {
     ESP_LOGI("webserver.c", "Incorrect AdminPW - UE: '%s'", tmp1);
     httpd_resp_set_status(req, "403 Forbidden");
-    strcpy(myresponse, "Admin-Password incorrect.");
-    httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, "Admin-Password incorrect.", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
   }
   /* generate token, send cookie, redirect to adminmenu.html */
@@ -363,8 +368,7 @@ esp_err_t post_adminlogin(httpd_req_t * req) {
   httpd_resp_set_hdr(req, "Location", "adminmenu.html");
   sprintf(tmp1, "authtoken=%s; Max-Age=%d", createnewauthtoken(), MAXTOKENLIFETIME);
   httpd_resp_set_hdr(req, "Set-Cookie", tmp1);
-  strcpy(myresponse, "Redirecting...");
-  httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+  httpd_resp_send(req, "Redirecting...", HTTPD_RESP_USE_STRLEN);
   return ESP_OK;
 }
 
@@ -486,6 +490,47 @@ static httpd_uri_t uri_adminaction = {
   .user_ctx = NULL
 };
 
+esp_err_t post_savesettings(httpd_req_t * req) {
+  char postcontent[1000];
+  char myresponse[1000];
+  char tmp1[600];
+  if (checkauthtoken(req) != 1) {
+    httpd_resp_set_status(req, "403 Forbidden");
+    httpd_resp_send(req, "Please log in first.", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+  }
+  //ESP_LOGI("webserver.c", "POST request with length: %d", req->content_len);
+  if (req->content_len >= sizeof(postcontent)) {
+    httpd_resp_set_status(req, "500 Internal Server Error");
+    httpd_resp_send(req, "Sorry, your request was too large.", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+  }
+  int ret = httpd_req_recv(req, postcontent, req->content_len);
+  if (ret < req->content_len) {
+    httpd_resp_set_status(req, "500 Internal Server Error");
+    httpd_resp_send(req, "Your request was incompletely received.", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+  }
+  postcontent[req->content_len] = 0;
+  ESP_LOGI("webserver.c", "Received data: '%s'", postcontent);
+  /* FIXME
+  if (httpd_query_key_value(postcontent, "action", tmp1, sizeof(tmp1)) != ESP_OK) {
+    httpd_resp_set_status(req, "400 Bad Request");
+    strcpy(myresponse, "No adminaction selected.");
+    httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+  } */
+  httpd_resp_send(req, "OK - dummy function", HTTPD_RESP_USE_STRLEN);
+  return ESP_OK;
+}
+
+static httpd_uri_t uri_savesettings = {
+  .uri      = "/savesettings",
+  .method   = HTTP_POST,
+  .handler  = post_savesettings,
+  .user_ctx = NULL
+};
+
 void webserver_start(void) {
   httpd_handle_t server = NULL;
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -494,8 +539,9 @@ void webserver_start(void) {
    * out of connections. */
   config.lru_purge_enable = true;
   config.server_port = 80;
+  config.max_uri_handlers = 16;
   /* The default is undocumented, but seems to be only 4k. */
-  config.stack_size = 10000;
+  config.stack_size = 8192;
   ESP_LOGI("webserver.c", "Starting webserver on port %d", config.server_port);
   if (httpd_start(&server, &config) != ESP_OK) {
     ESP_LOGE("webserver.c", "Failed to start HTTP server.");
@@ -509,5 +555,6 @@ void webserver_start(void) {
   httpd_register_uri_handler(server, &uri_adminlogin);
   httpd_register_uri_handler(server, &uri_adminmenu);
   httpd_register_uri_handler(server, &uri_adminaction);
+  httpd_register_uri_handler(server, &uri_savesettings);
 }
 

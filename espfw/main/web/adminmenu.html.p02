@@ -1,9 +1,85 @@
-</select>
-<input type="submit" name="su" value="Execute Action"><br>
-URL for firmware Update:
-<input type="text" name="updateurl" value="https://www.poempelfox.de/espfw/foxesptemp2023.bin">
-</form>
-BE PATIENT after clicking "Flash Firmware Update" - it will take at
-least 30 seconds before the webserver will show any sort of reply.
+<form action="adminaction" method="POST">
+<input type="hidden" name="action" value="flashupdate">
+URL for firmware Update:<br>
+<input type="text" name="updateurl" value="https://www.poempelfox.de/espfw/foxesptemp2023.bin"><br>
+BE PATIENT after clicking "Flash Firmware Update", do not click it twice -
+it will take at least 30 seconds before the webserver will show
+any sort of reply.<br>
+<input type="submit" name="su" value="Flash Firmware Update"><br>
+</form><br>
+<form action="adminaction" method="POST">
+<input type="hidden" name="action" value="reboot">
+<input type="submit" name="su" value="Reboot Microcontroller"><br>
+</form><br>
+<form action="adminaction" method="POST">
+<input type="hidden" name="action" value="forcesht4xheater">
+<input type="submit" name="su" value="Force SHT4x Heater On"><br>
+</form><br>
+
+<script type="text/javascript">
+var hideto = null;
+function hidesetresagain() {
+  document.getElementById("settingsresult").style.display = "none";
+  hideto = null;
+}
+function submitsettings(e) {
+  e.preventDefault();
+  const XHR = new XMLHttpRequest();
+  const FD = new FormData(e.srcElement);
+  // Define what happens on successful data submission
+  XHR.addEventListener("load", (event) => {
+    var sr = document.getElementById("settingsresult");
+    if (event.target.responseText.startsWith("OK")) {
+      sr.style.color = "#111111";
+      sr.style.backgroundColor = "#00aa00";
+    } else {
+      sr.style.color = "#aaaa00";
+      sr.style.backgroundColor = "#660000";
+    }
+    var newstatus = "Server replied:<br>";
+    newstatus += event.target.responseText;
+    newstatus += "<br>Please not that changed settings will only take effect after a reboot.";
+    sr.innerHTML = newstatus;
+    sr.style.display = "block";
+    if (hideto !== null) { clearTimeout(hideto); }
+    hideto = setTimeout(hidesetresagain, 10000);
+  });
+  // Define what happens in case of error
+  XHR.addEventListener("error", (event) => {
+    var sr = document.getElementById("settingsresult");
+    sr.style.color = "#aaaa00";
+    sr.style.backgroundColor = "#660000";
+    sr.innerHTML = "There was an error saving those settings.";
+    sr.style.display = "block";
+    if (hideto !== null) { clearTimeout(hideto); }
+    hideto = setTimeout(hidesetresagain, 10000);
+  });
+  XHR.open("POST", "savesettings");
+  XHR.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+  XHR.send(new URLSearchParams(FD));
+}
+</script>
+<h3>Settings<h3>
+<div id="settingsresult"></div>
+<h4>WiFi</h4>
+<form action="savesettings" method="POST" onsubmit="submitsettings(event)">
+<label for="wifi_mode">WiFi mode:</label>
+<select name="wifi_mode" id="wifi_mode">
+<option value="0">Access Point</option>
+<option value="1">Client</option>
+</select><br>
+For AccessPoint-Mode:<br>
+<label for="wifi_ap_ssid">WiFi SSID:</label>
+<input type="text" name="wifi_ap_ssid" id="wifi_ap_ssid" value="foxtemp-dings"><br>
+<label for="wifi_ap_pw">WiFi password (leave empty for 'open' mode):</label>
+<input type="text" name="wifi_ap_pw" id="wifi_ap_pw" value="secret"><br>
+For Client-Mode:<br>
+<label for="wifi_cl_ssid">WiFi SSID:</label>
+<input type="text" name="wifi_cl_ssid" id="wifi_cl_ssid" value="NetworkToLoginTo"><br>
+<label for="wifi_cl_pw">WiFi password:</label>
+<input type="text" name="wifi_cl_pw" id="wifi_cl_pw" value="password"><br>
+<input type="submit" name="su" value="Set">
+</form><br>
+
 </body></html>
 

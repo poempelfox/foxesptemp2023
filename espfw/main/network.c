@@ -86,6 +86,7 @@ void network_prepare(void)
       esp_netif_set_hostname(mainnetif, "eltersdorftemp");
       wifi_init_config_t wicfg = WIFI_INIT_CONFIG_DEFAULT();
       ESP_ERROR_CHECK(esp_wifi_init(&wicfg));
+      ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
       // Register user defined event handers
       ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL));
       ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &got_ip_event_handler, NULL));
@@ -98,13 +99,15 @@ void network_prepare(void)
         }
       };
       strlcpy(wc.sta.ssid, settings.wifi_cl_ssid, sizeof(wc.sta.ssid));
-      if (strlen(wc.sta.password) > 0) {
+      if (strlen(settings.wifi_cl_pw) > 0) {
         strlcpy(wc.sta.password, settings.wifi_cl_pw, sizeof(wc.sta.password));
       } else {
         wc.sta.threshold.authmode = WIFI_AUTH_OPEN;
       }
       ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
       ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wc));
+      ESP_LOGI("network.c", "Will try to connect to WiFi with SSID %s and password %s",
+               wc.sta.ssid, wc.sta.password);
     } else { /* we're not a client but an access point */
       wifi_config_t wc = {
         .ap.max_connection = 8,

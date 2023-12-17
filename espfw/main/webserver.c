@@ -1,13 +1,14 @@
 
-#include <esp_http_server.h>
-#include <esp_log.h>
-#include <time.h>
-#include <esp_ota_ops.h>
-#include <esp_http_client.h>
-#include <esp_https_ota.h>
 #include <esp_crt_bundle.h>
+#include <esp_http_client.h>
+#include <esp_http_server.h>
+#include <esp_https_ota.h>
+#include <esp_log.h>
 #include <esp_netif.h>
+#include <esp_ota_ops.h>
 #include <esp_random.h>
+#include <nvs_flash.h>
+#include <time.h>
 #include "settings.h"
 #include "webserver.h"
 
@@ -27,7 +28,7 @@ static int settingshavechanged = 0;
 #define MAXTOKENLIFETIME (30 * 60)
 struct authtoken {
   time_t ts; /* When this token was handed out */
-  char token[64]; /* the token. Always 63 bytes plus terminating \0 */
+  uint8_t token[64]; /* the token. Always 63 bytes plus terminating \0 */
 };
 static struct authtoken liadmins[MAXADMINLOGINS];
 
@@ -54,7 +55,9 @@ extern const uint8_t adminmenu_p2[] asm("_binary_adminmenu_html_p01_start");
 
 extern const uint8_t adminmenu_p3[] asm("_binary_adminmenu_html_p02_start");
 
-static const char adminmenu_fww[] = R"EOAMFWW(
+extern const uint8_t adminmenu_p4[] asm("_binary_adminmenu_html_p03_start");
+
+static const uint8_t adminmenu_fww[] = R"EOAMFWW(
 <br><b>A new firmware has been flashed,</b> and booted up (it's currently
 running) - <b>but it has not been marked as &quot;good&quot; yet</b>.
 Unless you mark the new firmware as &quot;good&quot;, on the next reset the old
@@ -65,6 +68,11 @@ firmware will be restored.<br>
 </form><br>
 )EOAMFWW";
 
+static const uint8_t pleaseloginfirstmsg[] = R"EOPLF(
+You need to <a href="./#adminloginform">log in</a> before you can
+access admin functions.
+)EOPLF";
+
 /********************************************************
  * End of embedded webpages definition                  *
  ********************************************************/
@@ -73,11 +81,13 @@ firmware will be restored.<br>
 
 /* Unescapes a x-www-form-urlencoded string.
  * Modifies the string inplace! */
-void unescapeuestring(char * s) {
-  char * rp = s;
-  char * wp = s;
+void unescapeuestring(uint8_t * s) {
+  uint8_t * rp = s;
+  uint8_t * wp = s;
   while (*rp != 0) {
-    if (strncmp(rp, "&amp;", 5) == 0) {
+    if (strncmp(rp, "+", 1) == 0) {
+      *wp = ' '; wp++; rp++;
+    } else if (strncmp(rp, "&amp;", 5) == 0) {
       *wp = '&'; rp += 5; wp += 1;
     } else if (strncmp(rp, "%26", 3) == 0) {
       *wp = '&'; rp += 3; wp += 1;
@@ -103,14 +113,14 @@ void expireauthtokens() {
   }
 }
 
-static const char tokchars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+static const uint8_t tokchars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
 /* Creates a new entry in the list of logged in admins (liadmins[]).
  * If there is no space, one of the oldest entries will be overwritten, thereby
  * invalidating the session using it.
  * Returns a pointer to the generated new token - as it points to the entry in
  * liadmins[], it naturally must not be modified outside of this function. */
-char * createnewauthtoken(void) {
+uint8_t * createnewauthtoken(void) {
   expireauthtokens();
   int selectedslot = 0;
   time_t mints = 0;
@@ -133,7 +143,7 @@ char * createnewauthtoken(void) {
  */
 int checkauthtoken(httpd_req_t * req) {
   expireauthtokens(); // Clears expired ones, so we don't have to test for expiry below
-  char tokenfromrequest[64];
+  uint8_t tokenfromrequest[64];
   size_t tfrsize = sizeof(tokenfromrequest);
   esp_err_t e = httpd_req_get_cookie_val(req, "authtoken", tokenfromrequest, &tfrsize);
   if (e != ESP_OK) {
@@ -160,8 +170,8 @@ int checkauthtoken(httpd_req_t * req) {
 /* Page handlers */
 
 esp_err_t get_startpage_handler(httpd_req_t * req) {
-  char myresponse[3000]; /* approx 1000 for the startpage and 2000 for the content we insert below. */
-  char * pfp;
+  uint8_t myresponse[3000]; /* approx 1000 for the startpage and 2000 for the content we insert below. */
+  uint8_t * pfp;
   int e = activeevs;
   strcpy(myresponse, startp_p1);
   pfp = myresponse + strlen(startp_p1);
@@ -192,8 +202,8 @@ static httpd_uri_t uri_startpage = {
 };
 
 esp_err_t get_json_handler(httpd_req_t * req) {
-  char myresponse[1100];
-  char * pfp;
+  uint8_t myresponse[1100];
+  uint8_t * pfp;
   int e = activeevs;
   strcpy(myresponse, "");
   pfp = myresponse;
@@ -223,8 +233,8 @@ static httpd_uri_t uri_json = {
 };
 
 esp_err_t get_publicdebug_handler(httpd_req_t * req) {
-  char myresponse[2000];
-  char * pfp;
+  uint8_t myresponse[2000];
+  uint8_t * pfp;
   strcpy(myresponse, "");
   pfp = myresponse;
   pfp += sprintf(pfp, "<html><head><title>Debug info (public part)</title></head><body>");
@@ -293,12 +303,32 @@ static httpd_uri_t uri_css_css = {
   .user_ctx = NULL
 };
 
+static uint8_t getu8setting(nvs_handle_t nvshandle, const uint8_t * key) {
+  uint8_t res = 0;
+  esp_err_t e = nvs_get_u8(nvshandle, key, &res);
+  if ((e != ESP_OK) && (e != ESP_ERR_NVS_NOT_FOUND)) {
+    ESP_LOGW("webserver.c", "failed to load u8 setting %s: %s", key, esp_err_to_name(e));
+  }
+  return res;
+}
+
+static void getstrsetting(nvs_handle_t nvshandle, const char * key, char * out, size_t len)
+{
+  size_t l = len;
+  memset(out, 0, len);
+  esp_err_t e = nvs_get_str(nvshandle, key, out, &l);
+  if ((e != ESP_OK) && (e != ESP_ERR_NVS_NOT_FOUND)) {
+    ESP_LOGW("webserver.c", "failed to load str setting %s: %s", key, esp_err_to_name(e));
+  }
+}
+
 esp_err_t get_adminmenu_handler(httpd_req_t * req) {
-  char * myresponse; /* This is going to be too large to just put it on the stack. */
-  char * pfp;
+  uint8_t * myresponse; /* This is going to be too large to just put it on the stack. */
+  uint8_t * pfp;
+  uint8_t tmp1[600];
   if (checkauthtoken(req) != 1) {
     httpd_resp_set_status(req, "403 Forbidden");
-    httpd_resp_send(req, "Please log in first.", HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, pleaseloginfirstmsg, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
   }
   myresponse = calloc(20000, 1); /* FIXME calculate a realistic size */
@@ -307,17 +337,48 @@ esp_err_t get_adminmenu_handler(httpd_req_t * req) {
     httpd_resp_send(req, "Out of memory.", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
   }
+  nvs_handle_t nvshandle;
+  memset(&nvshandle, 0, sizeof(nvshandle));
+  if (nvs_open("settings", NVS_READONLY, &nvshandle) != ESP_OK) {
+    ESP_LOGW("webserver.c", "Failed to open settings in flash - this will cause"
+                            " lots of consequential ESP_ERR_NVS_INVALID_HANDLE"
+                            " errors directly below this.");
+  }
   strcpy(myresponse, adminmenu_p1);
   pfp = myresponse + strlen(myresponse);
   const esp_app_desc_t * appd = esp_app_get_description();
   pfp = myresponse + strlen(myresponse);
   pfp += sprintf(pfp, "%s version %s compiled %s %s",
                  appd->project_name, appd->version, appd->date, appd->time);
-  strcat(myresponse, adminmenu_p2);
+  strcat(pfp, adminmenu_p2);
   if (pendingfwverify > 0) { /* notification that firmware has not been marked as good yet */
-    strcat(myresponse, adminmenu_fww);
+    strcat(pfp, adminmenu_fww);
   }
-  strcat(myresponse, adminmenu_p3);
+  strcat(pfp, adminmenu_p3);
+  /* this is the WiFi settings section. */
+  strcat(pfp, "<select name=\"wifi_mode\" id=\"wifi_mode\">");
+  uint8_t cwm = getu8setting(nvshandle, "wifi_mode");
+  pfp = myresponse + strlen(myresponse);
+  pfp += sprintf(pfp, "<option value=\"0\"%s>Access Point</option>", ((cwm == 0) ? " selected" : ""));
+  pfp += sprintf(pfp, "<option value=\"1\"%s>Client</option>", ((cwm == 1) ? " selected" : ""));
+  pfp += sprintf(pfp, "%s", "</select><br>For AccessPoint-Mode:<br><label for=\"wifi_ap_ssid\">WiFi SSID:</label>");
+  getstrsetting(nvshandle, "wifi_ap_ssid", tmp1, sizeof(tmp1));
+  if (strlen(tmp1) == 0) { // for this setting, if there is no setting in flash,
+    // we will as an exception take the currently active value (which WILL be
+    // the default) from the settings variable.
+    strcpy(tmp1, settings.wifi_ap_ssid);
+  }
+  pfp += sprintf(pfp, "<input type=\"text\" name=\"wifi_ap_ssid\" id=\"wifi_ap_ssid\" value=\"%s\"><br>", tmp1);
+  pfp += sprintf(pfp, "%s", "<label for=\"wifi_ap_pw\">WiFi password (leave empty for 'open' mode):</label>");
+  getstrsetting(nvshandle, "wifi_ap_pw", tmp1, sizeof(tmp1));
+  pfp += sprintf(pfp, "<input type=\"text\" name=\"wifi_ap_pw\" id=\"wifi_ap_pw\" value=\"%s\"><br>", tmp1);
+  pfp += sprintf(pfp, "%s", "For Client-Mode:<br><label for=\"wifi_cl_ssid\">WiFi SSID:</label>");
+  getstrsetting(nvshandle, "wifi_cl_ssid", tmp1, sizeof(tmp1));
+  pfp += sprintf(pfp, "<input type=\"text\" name=\"wifi_cl_ssid\" id=\"wifi_cl_ssid\" value=\"%s\"><br>", tmp1);
+  pfp += sprintf(pfp, "%s", "<label for=\"wifi_cl_pw\">WiFi password:</label>");
+  getstrsetting(nvshandle, "wifi_cl_pw", tmp1, sizeof(tmp1));
+  pfp += sprintf(pfp, "<input type=\"text\" name=\"wifi_cl_pw\" id=\"wifi_cl_pw\" value=\"%s\"><br>", tmp1);
+  strcat(pfp, adminmenu_p4);
   /* The following two lines are the default und thus redundant. */
   httpd_resp_set_status(req, "200 OK");
   httpd_resp_set_type(req, "text/html");
@@ -335,8 +396,8 @@ static httpd_uri_t uri_adminmenu = {
 };
 
 esp_err_t post_adminlogin(httpd_req_t * req) {
-  char postcontent[600];
-  char tmp1[600];
+  uint8_t postcontent[600];
+  uint8_t tmp1[600];
   //ESP_LOGI("webserver.c", "POST request with length: %d", req->content_len);
   if (req->content_len >= sizeof(postcontent)) {
     httpd_resp_set_status(req, "500 Internal Server Error");
@@ -380,42 +441,37 @@ static httpd_uri_t uri_adminlogin = {
 };
 
 esp_err_t post_adminaction(httpd_req_t * req) {
-  char postcontent[600];
-  char myresponse[1000];
-  char tmp1[600];
+  uint8_t postcontent[600];
+  uint8_t myresponse[1000];
+  uint8_t tmp1[200];
   if (checkauthtoken(req) != 1) {
     httpd_resp_set_status(req, "403 Forbidden");
-    strcpy(myresponse, "Please log in first.");
-    httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, pleaseloginfirstmsg, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
   }
   //ESP_LOGI("webserver.c", "POST request with length: %d", req->content_len);
   if (req->content_len >= sizeof(postcontent)) {
     httpd_resp_set_status(req, "500 Internal Server Error");
-    strcpy(myresponse, "Sorry, your request was too large. Try a shorter update URL?");
-    httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, "Sorry, your request was too large. Try a shorter update URL?", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
   }
   int ret = httpd_req_recv(req, postcontent, req->content_len);
   if (ret < req->content_len) {
     httpd_resp_set_status(req, "500 Internal Server Error");
-    strcpy(myresponse, "Your request was incompletely received.");
-    httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, "Your request was incompletely received.", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
   }
   postcontent[req->content_len] = 0;
   ESP_LOGI("webserver.c", "Received data: '%s'", postcontent);
   if (httpd_query_key_value(postcontent, "action", tmp1, sizeof(tmp1)) != ESP_OK) {
     httpd_resp_set_status(req, "400 Bad Request");
-    strcpy(myresponse, "No adminaction selected.");
-    httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, "No adminaction selected.", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
   }
   if (strcmp(tmp1, "flashupdate") == 0) {
     if (httpd_query_key_value(postcontent, "updateurl", tmp1, sizeof(tmp1)) != ESP_OK) {
       httpd_resp_set_status(req, "400 Bad Request");
-      strcpy(myresponse, "No updateurl submitted.");
-      httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+      httpd_resp_send(req, "No updateurl submitted.", HTTPD_RESP_USE_STRLEN);
       return ESP_OK;
     }
     unescapeuestring(tmp1);
@@ -490,13 +546,39 @@ static httpd_uri_t uri_adminaction = {
   .user_ctx = NULL
 };
 
+struct strset_s {
+  const uint8_t * name;
+  int minlen;
+  int maxlen;
+};
+
+struct u8set_s {
+  const uint8_t * name;
+  uint8_t minval;
+  uint8_t maxval;
+};
+
+static const struct strset_s strsets[] = {
+  { .name = "wifi_ap_ssid", .minlen = 2, .maxlen = 32 },
+  { .name = "wifi_ap_pw", .minlen = 0, .maxlen = 63 },
+  { .name = "wifi_cl_ssid", .minlen = 2, .maxlen = 32 },
+  { .name = "wifi_cl_pw", .minlen = 0, .maxlen = 63 },
+  { .name = "adminpw", .minlen = 1, .maxlen = 24 },
+};
+
+static const struct u8set_s u8sets[] = {
+  { .name = "wifi_mode", .minval = 0, .maxval = 1 },
+};
+
 esp_err_t post_savesettings(httpd_req_t * req) {
-  char postcontent[1000];
-  char myresponse[1000];
-  char tmp1[600];
+  uint8_t postcontent[1000];
+  uint8_t myresponse[1000];
+  uint8_t tmp1[200];
+  uint8_t tmp2[200];
+  strcpy(myresponse, "OK.<br>");
   if (checkauthtoken(req) != 1) {
     httpd_resp_set_status(req, "403 Forbidden");
-    httpd_resp_send(req, "Please log in first.", HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, pleaseloginfirstmsg, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
   }
   //ESP_LOGI("webserver.c", "POST request with length: %d", req->content_len);
@@ -513,14 +595,109 @@ esp_err_t post_savesettings(httpd_req_t * req) {
   }
   postcontent[req->content_len] = 0;
   ESP_LOGI("webserver.c", "Received data: '%s'", postcontent);
-  /* FIXME
-  if (httpd_query_key_value(postcontent, "action", tmp1, sizeof(tmp1)) != ESP_OK) {
-    httpd_resp_set_status(req, "400 Bad Request");
-    strcpy(myresponse, "No adminaction selected.");
-    httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+  nvs_handle_t nvshandle;
+  esp_err_t e = nvs_open("settings", NVS_READWRITE, &nvshandle);
+  if (e != ESP_OK) {
+    ESP_LOGE("webserver.c", "Failed to open settings in flash for writing: %s.",
+                            esp_err_to_name(e));
+    httpd_resp_set_status(req, "500 Internal Server Error");
+    httpd_resp_send(req, "Error accessing non-volatile storage for settings.", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
-  } */
-  httpd_resp_send(req, "OK - dummy function", HTTPD_RESP_USE_STRLEN);
+  }
+  /* string values */
+  for (int i = 0; i < (sizeof(strsets) / sizeof(struct strset_s)); i++) {
+    if (httpd_query_key_value(postcontent, strsets[i].name, tmp1, sizeof(tmp1)) != ESP_OK) {
+      continue; // No such setting in submitted values.
+    }
+    unescapeuestring(tmp1);
+    if (strlen(tmp1) < strsets[i].minlen) {
+      sprintf(myresponse, "ERROR: '%s' needs to be at least %d characters long.",
+                          strsets[i].name, strsets[i].minlen);
+      httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+      return ESP_OK;
+    }
+    if (strlen(tmp1) > strsets[i].maxlen) {
+      sprintf(myresponse, "ERROR: '%s' can be at most %d characters long.",
+                          strsets[i].name, strsets[i].maxlen);
+      httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+      return ESP_OK;
+    }
+    /* Length seems OK. Has the value changed? */
+    size_t len = sizeof(tmp2);
+    e = nvs_get_str(nvshandle, strsets[i].name, tmp2, &len);
+    if ((e != ESP_OK) && (e != ESP_ERR_NVS_NOT_FOUND)) {
+      ESP_LOGE("webserver.c", "Failed to query setting in flash: %s.",
+                              esp_err_to_name(e));
+      httpd_resp_set_status(req, "500 Internal Server Error");
+      httpd_resp_send(req, "Error reading non-volatile storage for settings.", HTTPD_RESP_USE_STRLEN);
+      return ESP_OK;
+    }
+    if ((e == ESP_ERR_NVS_NOT_FOUND)
+     || (strcmp(tmp1, tmp2) != 0)) { // OK, this setting has changed.
+      // Write the changed value.
+      e = nvs_set_str(nvshandle, strsets[i].name, tmp1);
+      if (e != ESP_OK) {
+        ESP_LOGE("webserver.c", "Failed to write changed setting to flash: %s.",
+                                esp_err_to_name(e));
+        httpd_resp_set_status(req, "500 Internal Server Error");
+        httpd_resp_send(req, "Error writing non-volatile storage for settings.", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+      }
+      settingshavechanged = 1;
+      strcat(myresponse, "'");
+      strcat(myresponse, strsets[i].name);
+      strcat(myresponse, "' changed.<br>");
+    }
+  }
+  /* u8 values */
+  for (int i = 0; i < (sizeof(u8sets) / sizeof(struct u8set_s)); i++) {
+    if (httpd_query_key_value(postcontent, u8sets[i].name, tmp1, sizeof(tmp1)) != ESP_OK) {
+      continue; // No such setting in submitted values.
+    }
+    long newv = strtol(tmp1, NULL, 10);
+    if ((newv < u8sets[i].minval) || (newv > u8sets[i].maxval)) {
+      sprintf(myresponse, "ERROR: value %ld for '%s' is outside permitted range [%u...%u]",
+                          newv, u8sets[i].name, u8sets[i].minval, u8sets[i].maxval);
+      httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+      return ESP_OK;
+    }
+    /* Range is valid, has the value changed? */
+    uint8_t oldv = 0;
+    e = nvs_get_u8(nvshandle, u8sets[i].name, &oldv);
+    if ((e != ESP_OK) && (e != ESP_ERR_NVS_NOT_FOUND)) {
+      ESP_LOGE("webserver.c", "Failed to query setting in flash: %s.",
+                              esp_err_to_name(e));
+      httpd_resp_set_status(req, "500 Internal Server Error");
+      httpd_resp_send(req, "Error reading non-volatile storage for settings.", HTTPD_RESP_USE_STRLEN);
+      return ESP_OK;
+    }
+    if ((e == ESP_ERR_NVS_NOT_FOUND)
+     || (oldv != newv)) { // OK, this setting has changed.
+      // Write the changed value.
+      e = nvs_set_u8(nvshandle, u8sets[i].name, (uint8_t)newv);
+      if (e != ESP_OK) {
+        ESP_LOGE("webserver.c", "Failed to write changed setting to flash: %s.",
+                                esp_err_to_name(e));
+        httpd_resp_set_status(req, "500 Internal Server Error");
+        httpd_resp_send(req, "Error writing non-volatile storage for settings.", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+      }
+      settingshavechanged = 1;
+      strcat(myresponse, "'");
+      strcat(myresponse, u8sets[i].name);
+      strcat(myresponse, "' changed.<br>");
+    }
+  }
+  e = nvs_commit(nvshandle);
+  if (e != ESP_OK) {
+    ESP_LOGE("webserver.c", "Failed to flush changed settings to flash: %s.",
+                            esp_err_to_name(e));
+    httpd_resp_set_status(req, "500 Internal Server Error");
+    httpd_resp_send(req, "Error flushing non-volatile storage for settings.", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+  }
+  nvs_close(nvshandle);
+  httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
   return ESP_OK;
 }
 

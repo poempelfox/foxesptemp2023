@@ -38,7 +38,7 @@ function submitsettings(e) {
     }
     var newstatus = "Server replied:<br>";
     newstatus += event.target.responseText;
-    newstatus += "<br>Please not that changed settings will only take effect after a reboot.";
+    newstatus += "<br>Please note that changed settings will only take effect after a reboot.";
     sr.innerHTML = newstatus;
     sr.style.display = "block";
     if (hideto !== null) { clearTimeout(hideto); }
@@ -64,22 +64,3 @@ function submitsettings(e) {
 <h4>WiFi</h4>
 <form action="savesettings" method="POST" onsubmit="submitsettings(event)">
 <label for="wifi_mode">WiFi mode:</label>
-<select name="wifi_mode" id="wifi_mode">
-<option value="0">Access Point</option>
-<option value="1">Client</option>
-</select><br>
-For AccessPoint-Mode:<br>
-<label for="wifi_ap_ssid">WiFi SSID:</label>
-<input type="text" name="wifi_ap_ssid" id="wifi_ap_ssid" value="foxtemp-dings"><br>
-<label for="wifi_ap_pw">WiFi password (leave empty for 'open' mode):</label>
-<input type="text" name="wifi_ap_pw" id="wifi_ap_pw" value="secret"><br>
-For Client-Mode:<br>
-<label for="wifi_cl_ssid">WiFi SSID:</label>
-<input type="text" name="wifi_cl_ssid" id="wifi_cl_ssid" value="NetworkToLoginTo"><br>
-<label for="wifi_cl_pw">WiFi password:</label>
-<input type="text" name="wifi_cl_pw" id="wifi_cl_pw" value="password"><br>
-<input type="submit" name="su" value="Set">
-</form><br>
-
-</body></html>
-

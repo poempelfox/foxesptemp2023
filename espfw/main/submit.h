@@ -10,14 +10,15 @@ struct wpds {
 };
 
 /* The IDs of our sensors on wetter.poempelfox.de. */
-#define WPDSID_TEMPERATURE "88"
-#define WPDSID_HUMIDITY "89"
-#define WPDSID_PRESSURE "90"
-#define WPDSID_RAINGAUGE "91"
-#define WPDSID_PM010 "92"
-#define WPDSID_PM025 "93"
-#define WPDSID_PM040 "94"
-#define WPDSID_PM100 "95"
+#define WPDSID_TEMPERATURE "96"
+#define WPDSID_HUMIDITY "97"
+#define WPDSID_PRESSURE "999"
+#define WPDSID_RAINGAUGE "999"
+#define WPDSID_PM010 "999"
+#define WPDSID_PM025 "999"
+#define WPDSID_PM040 "999"
+#define WPDSID_PM100 "999"
+#define WPDSID_CO2 "98"
 
 /* Submits multiple values to the wetter.poempelfox.de API
  * in one HTTPS request */

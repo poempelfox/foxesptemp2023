@@ -27,5 +27,7 @@ extern struct globalsettings settings;
 /* Load main settings */
 void settings_load(void);
 
+void settings_hardcode(void);
+
 #endif /* _SETTINGS_H_ */
 

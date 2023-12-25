@@ -62,6 +62,7 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(err);
     /* Load settings from NVRAM */
+    settings_hardcode(); /* smuggles in hardcoded settings for testing */
     settings_load();
 
     /* Already try to start up the network (will happen mostly in the BG) */
@@ -156,7 +157,7 @@ void app_main(void)
          * see whether a heating might have influenced the measurements. */
         evs[naevs].lastsht4xheat = lastsht4xheat;
 
-        struct wpds tosubmit[10]; /* we'll submit at most 8 values because we have that many sensors */
+        struct wpds tosubmit[11]; /* we'll submit at most 8 values because we have that many sensors */
         int nts = 0; /* Number of values to submit */
         /* Lets define a little helper macro to limit the copy+paste orgies */
         #define QUEUETOSUBMIT(s, v)  tosubmit[nts].sensorid = s; tosubmit[nts].value = v; nts++;
@@ -220,7 +221,7 @@ void app_main(void)
                         co2data.temp, co2data.tempraw,
                         co2data.hum, co2data.humraw);
           evs[naevs].co2 = co2data.co2;
-          /* FIXME QUEUETOSUBMIT(WPDSID_CO2, co2data.co2); */
+          QUEUETOSUBMIT(WPDSID_CO2, co2data.co2);
         } else {
           evs[naevs].co2 = 0xffff; /* no such thing as a NaN here :-/ */
         }

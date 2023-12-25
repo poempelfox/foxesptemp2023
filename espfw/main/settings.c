@@ -56,6 +56,22 @@ void settings_load(void)
   loadstr(nvshandle, "wifi_ap_ssid", settings.wifi_ap_ssid, sizeof(settings.wifi_ap_ssid));
   loadstr(nvshandle, "wifi_ap_pw", settings.wifi_ap_pw, sizeof(settings.wifi_ap_pw));
   loadstr(nvshandle, "adminpw", settings.adminpw, sizeof(settings.adminpw));
+  loadstr(nvshandle, "wpdtoken", settings.wpdtoken, sizeof(settings.wpdtoken));
   nvs_close(nvshandle);
+}
+
+void settings_hardcode(void) {
+#if 0
+  nvs_handle_t nvshandle;
+  esp_err_t e = nvs_open("settings", NVS_READWRITE, &nvshandle);
+  if (e != ESP_OK) {
+    ESP_LOGE("settings.c", "Failed to open settings in flash for writing hardcoded settings: %s.",
+                           esp_err_to_name(e));
+    return;
+  }
+  nvs_set_str(nvshandle, "wifi_cl_ssid", "37C3-open");
+  nvs_set_str(nvshandle, "wifi_cl_pw", "");
+  nvs_close(nvshandle);
+#endif
 }
 

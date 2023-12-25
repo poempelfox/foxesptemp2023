@@ -63,4 +63,4 @@ function submitsettings(e) {
 <div id="settingsresult"></div>
 <h4>WiFi</h4>
 <form action="savesettings" method="POST" onsubmit="submitsettings(event)">
-<label for="wifi_mode">WiFi mode:</label>
+<table>

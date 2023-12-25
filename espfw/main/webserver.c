@@ -1,4 +1,5 @@
 
+#include <driver/gpio.h>
 #include <esp_crt_bundle.h>
 #include <esp_http_client.h>
 #include <esp_http_server.h>
@@ -56,6 +57,8 @@ extern const uint8_t adminmenu_p2[] asm("_binary_adminmenu_html_p01_start");
 extern const uint8_t adminmenu_p3[] asm("_binary_adminmenu_html_p02_start");
 
 extern const uint8_t adminmenu_p4[] asm("_binary_adminmenu_html_p03_start");
+
+extern const uint8_t adminmenu_p5[] asm("_binary_adminmenu_html_p04_start");
 
 static const uint8_t adminmenu_fww[] = R"EOAMFWW(
 <br><b>A new firmware has been flashed,</b> and booted up (it's currently
@@ -347,7 +350,6 @@ esp_err_t get_adminmenu_handler(httpd_req_t * req) {
   strcpy(myresponse, adminmenu_p1);
   pfp = myresponse + strlen(myresponse);
   const esp_app_desc_t * appd = esp_app_get_description();
-  pfp = myresponse + strlen(myresponse);
   pfp += sprintf(pfp, "%s version %s compiled %s %s",
                  appd->project_name, appd->version, appd->date, appd->time);
   strcat(pfp, adminmenu_p2);
@@ -356,29 +358,59 @@ esp_err_t get_adminmenu_handler(httpd_req_t * req) {
   }
   strcat(pfp, adminmenu_p3);
   /* this is the WiFi settings section. */
+  strcat(pfp, "<tr><th><label for=\"wifi_mode\">WiFi mode:</label></th><td>");
   strcat(pfp, "<select name=\"wifi_mode\" id=\"wifi_mode\">");
-  uint8_t cwm = getu8setting(nvshandle, "wifi_mode");
-  pfp = myresponse + strlen(myresponse);
-  pfp += sprintf(pfp, "<option value=\"0\"%s>Access Point</option>", ((cwm == 0) ? " selected" : ""));
-  pfp += sprintf(pfp, "<option value=\"1\"%s>Client</option>", ((cwm == 1) ? " selected" : ""));
-  pfp += sprintf(pfp, "%s", "</select><br>For AccessPoint-Mode:<br><label for=\"wifi_ap_ssid\">WiFi SSID:</label>");
+  uint8_t curs = getu8setting(nvshandle, "wifi_mode");
+  pfp = pfp + strlen(pfp);
+  pfp += sprintf(pfp, "<option value=\"0\"%s>Access Point</option>", ((curs == 0) ? " selected" : ""));
+  pfp += sprintf(pfp, "<option value=\"1\"%s>Client</option>", ((curs == 1) ? " selected" : ""));
+  pfp += sprintf(pfp, "%s", "</select></td></tr><tr><th colspan=\"2\">For AccessPoint-Mode</th></tr>");
+  pfp += sprintf(pfp, "%s", "<tr><th><label for=\"wifi_ap_ssid\">WiFi SSID:</label></th><td>");
   getstrsetting(nvshandle, "wifi_ap_ssid", tmp1, sizeof(tmp1));
   if (strlen(tmp1) == 0) { // for this setting, if there is no setting in flash,
     // we will as an exception take the currently active value (which WILL be
     // the default) from the settings variable.
     strcpy(tmp1, settings.wifi_ap_ssid);
   }
-  pfp += sprintf(pfp, "<input type=\"text\" name=\"wifi_ap_ssid\" id=\"wifi_ap_ssid\" value=\"%s\"><br>", tmp1);
-  pfp += sprintf(pfp, "%s", "<label for=\"wifi_ap_pw\">WiFi password (leave empty for 'open' mode):</label>");
+  pfp += sprintf(pfp, "<input type=\"text\" name=\"wifi_ap_ssid\" id=\"wifi_ap_ssid\" value=\"%s\"></td></tr>", tmp1);
+  pfp += sprintf(pfp, "%s", "<tr><th><label for=\"wifi_ap_pw\">WiFi password (leave empty for 'open' mode):</label></th><td>");
   getstrsetting(nvshandle, "wifi_ap_pw", tmp1, sizeof(tmp1));
-  pfp += sprintf(pfp, "<input type=\"text\" name=\"wifi_ap_pw\" id=\"wifi_ap_pw\" value=\"%s\"><br>", tmp1);
-  pfp += sprintf(pfp, "%s", "For Client-Mode:<br><label for=\"wifi_cl_ssid\">WiFi SSID:</label>");
+  pfp += sprintf(pfp, "<input type=\"text\" name=\"wifi_ap_pw\" id=\"wifi_ap_pw\" value=\"%s\"></td></tr>", tmp1);
+  pfp += sprintf(pfp, "%s", "<tr><th colspan=\"2\">For Client-Mode:</th></tr>");
+  pfp += sprintf(pfp, "%s", "<tr><th><label for=\"wifi_cl_ssid\">WiFi SSID:</label></th>");
   getstrsetting(nvshandle, "wifi_cl_ssid", tmp1, sizeof(tmp1));
-  pfp += sprintf(pfp, "<input type=\"text\" name=\"wifi_cl_ssid\" id=\"wifi_cl_ssid\" value=\"%s\"><br>", tmp1);
-  pfp += sprintf(pfp, "%s", "<label for=\"wifi_cl_pw\">WiFi password:</label>");
+  pfp += sprintf(pfp, "<td><input type=\"text\" name=\"wifi_cl_ssid\" id=\"wifi_cl_ssid\" value=\"%s\"></td></tr>", tmp1);
+  pfp += sprintf(pfp, "%s", "<tr><th><label for=\"wifi_cl_pw\">WiFi password:</label></th>");
   getstrsetting(nvshandle, "wifi_cl_pw", tmp1, sizeof(tmp1));
-  pfp += sprintf(pfp, "<input type=\"text\" name=\"wifi_cl_pw\" id=\"wifi_cl_pw\" value=\"%s\"><br>", tmp1);
+  pfp += sprintf(pfp, "<td><input type=\"text\" name=\"wifi_cl_pw\" id=\"wifi_cl_pw\" value=\"%s\"></td></tr>", tmp1);
   strcat(pfp, adminmenu_p4);
+  pfp = pfp + strlen(pfp);
+  pfp += sprintf(pfp, "%s", "<tr><th>I2C 0 GPIOs</th><td><label for=\"i2c_0_scl\">SCL:</label>");
+  pfp += sprintf(pfp, "%s", "<select name=\"i2c_0_scl\" id=\"i2c_0_scl\">");
+  curs = getu8setting(nvshandle, "i2c_0_scl");
+  pfp += sprintf(pfp, "<option value=\"0\"%s>disabled</option>", ((curs == 0) ? " selected" : ""));
+  for (int i = 0; i < 63; i++) {
+    if (GPIO_IS_VALID_GPIO(i)) {
+      pfp += sprintf(pfp, "<option value=\"%d\"%s>%d</option>", (i+1), ((curs == (i +1)) ? " selected" : ""), i);
+    }
+  }
+  pfp += sprintf(pfp, "%s", "</select> <label for=\"i2c_0_scl\">SDA:</label>");
+  pfp += sprintf(pfp, "%s", "<select name=\"i2c_0_sda\" id=\"i2c_0_sda\">");
+  curs = getu8setting(nvshandle, "i2c_0_sda");
+  pfp += sprintf(pfp, "<option value=\"0\"%s>disabled</option>", ((curs == 0) ? " selected" : ""));
+  for (int i = 0; i < 63; i++) {
+    if (GPIO_IS_VALID_GPIO(i)) {
+      pfp += sprintf(pfp, "<option value=\"%d\"%s>%d</option>", (i+1), ((curs == (i +1)) ? " selected" : ""), i);
+    }
+  }
+  pfp += sprintf(pfp, "%s", "</select><br>");
+  curs = getu8setting(nvshandle, "i2c_0_pullups");
+  pfp += sprintf(pfp, "%s", "<select id=\"i2c_0_pullups\" name=\"i2c_0_pullups\">");
+  pfp += sprintf(pfp, "<option value=\"0\"%s>Disable pullups</option>", ((curs == 0) ? " selected" : ""));
+  pfp += sprintf(pfp, "<option value=\"1\"%s>Enable pullups</option>", ((curs == 1) ? " selected" : ""));
+  pfp += sprintf(pfp, "%s", "</select></td></tr>");
+  /* FIXME serial pins */
+  strcat(pfp, adminmenu_p5);
   /* The following two lines are the default und thus redundant. */
   httpd_resp_set_status(req, "200 OK");
   httpd_resp_set_type(req, "text/html");

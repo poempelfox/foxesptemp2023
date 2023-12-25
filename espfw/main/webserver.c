@@ -188,6 +188,7 @@ esp_err_t get_startpage_handler(httpd_req_t * req) {
   pfp += sprintf(pfp, "<tr><th>PM 10.0 (&micro;g/m&sup3;)</th><td id=\"pm100\">%.1f</td></tr>", evs[e].pm100);
   pfp += sprintf(pfp, "<tr><th>Pressure (hPa)</th><td id=\"press\">%.3f</td></tr>", evs[e].press);
   pfp += sprintf(pfp, "<tr><th>Rain (mm/min)</th><td id=\"raing\">%.2f</td></tr>", evs[e].raing);
+  pfp += sprintf(pfp, "<tr><th>CO2 (ppm)</th><td id=\"co2\">%u</td></tr>", evs[e].co2);
   pfp += sprintf(pfp, "</table>");
   /* The following two lines are the default und thus redundant. */
   httpd_resp_set_status(req, "200 OK");
@@ -219,7 +220,8 @@ esp_err_t get_json_handler(httpd_req_t * req) {
   pfp += sprintf(pfp, "\"pm040\":\"%.1f\",", evs[e].pm040);
   pfp += sprintf(pfp, "\"pm100\":\"%.1f\",", evs[e].pm100);
   pfp += sprintf(pfp, "\"press\":\"%.3f\",", evs[e].press);
-  pfp += sprintf(pfp, "\"raing\":\"%.2f\"}", evs[e].raing);
+  pfp += sprintf(pfp, "\"raing\":\"%.2f\",", evs[e].raing);
+  pfp += sprintf(pfp, "\"co2\":\"%u\"}", evs[e].co2);
   /* The following line is the default und thus redundant. */
   httpd_resp_set_status(req, "200 OK");
   httpd_resp_set_type(req, "application/json");
@@ -364,7 +366,7 @@ esp_err_t get_adminmenu_handler(httpd_req_t * req) {
   pfp = pfp + strlen(pfp);
   pfp += sprintf(pfp, "<option value=\"0\"%s>Access Point</option>", ((curs == 0) ? " selected" : ""));
   pfp += sprintf(pfp, "<option value=\"1\"%s>Client</option>", ((curs == 1) ? " selected" : ""));
-  pfp += sprintf(pfp, "%s", "</select></td></tr><tr><th colspan=\"2\">For AccessPoint-Mode</th></tr>");
+  pfp += sprintf(pfp, "%s", "</select></td></tr><tr><th colspan=\"2\">For AccessPoint-Mode:</th></tr>");
   pfp += sprintf(pfp, "%s", "<tr><th><label for=\"wifi_ap_ssid\">WiFi SSID:</label></th><td>");
   getstrsetting(nvshandle, "wifi_ap_ssid", tmp1, sizeof(tmp1));
   if (strlen(tmp1) == 0) { // for this setting, if there is no setting in flash,

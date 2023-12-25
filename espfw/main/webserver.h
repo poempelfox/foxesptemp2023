@@ -16,6 +16,7 @@ struct ev {
   float press;
   float raing;
   float temp;
+  uint16_t co2;
 };
 
 /* Initialize and start the Webserver. */

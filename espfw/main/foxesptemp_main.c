@@ -18,6 +18,7 @@
 #include "lps35hw.h"
 #include "network.h"
 #include "rg15.h"
+#include "scd41.h"
 #include "sen50.h"
 #include "settings.h"
 #include "sht4x.h"
@@ -72,6 +73,8 @@ void app_main(void)
     sht4x_init(I2C_NUM_0);
     lps35hw_init(I2C_NUM_0);
     rg15_init();
+    scd41_init(I2C_NUM_0);
+    scd41_startmeas();
     sen50_init(I2C_NUM_1);
     sen50_startmeas(); /* FIXME Perhaps we don't want this on all the time. */    
     vTaskDelay(pdMS_TO_TICKS(3000)); /* Mainly to give the RG15 a chance to */
@@ -139,6 +142,8 @@ void app_main(void)
         float raing = rg15_readraincount();
         struct sht4xdata temphum;
         sht4x_read(&temphum);
+        struct scd41data co2data;
+        scd41_read(&co2data);
         struct sen50data pmdata;
         sen50_read(&pmdata);
 
@@ -206,6 +211,18 @@ void app_main(void)
         } else {
           evs[naevs].temp = NAN;
           evs[naevs].hum = NAN;
+        }
+
+        if (co2data.valid > 0) {
+          ESP_LOGI(TAG, "CO2: %u, LowQuality Temp: %.2f degC (raw: %x),"
+                        " LQ Hum: %.2f %% (raw: %x)",
+                        co2data.co2,
+                        co2data.temp, co2data.tempraw,
+                        co2data.hum, co2data.humraw);
+          evs[naevs].co2 = co2data.co2;
+          /* FIXME QUEUETOSUBMIT(WPDSID_CO2, co2data.co2); */
+        } else {
+          evs[naevs].co2 = 0xffff; /* no such thing as a NaN here :-/ */
         }
 
         if (pmdata.valid > 0) {

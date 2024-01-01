@@ -56,10 +56,6 @@ extern const uint8_t adminmenu_p2[] asm("_binary_adminmenu_html_p01_start");
 
 extern const uint8_t adminmenu_p3[] asm("_binary_adminmenu_html_p02_start");
 
-extern const uint8_t adminmenu_p4[] asm("_binary_adminmenu_html_p03_start");
-
-extern const uint8_t adminmenu_p5[] asm("_binary_adminmenu_html_p04_start");
-
 static const uint8_t adminmenu_fww[] = R"EOAMFWW(
 <br><b>A new firmware has been flashed,</b> and booted up (it's currently
 running) - <b>but it has not been marked as &quot;good&quot; yet</b>.
@@ -331,12 +327,25 @@ esp_err_t get_adminmenu_handler(httpd_req_t * req) {
   uint8_t * myresponse; /* This is going to be too large to just put it on the stack. */
   uint8_t * pfp;
   uint8_t tmp1[600];
+  uint8_t subpage[50];
+  uint8_t curs;
   if (checkauthtoken(req) != 1) {
     httpd_resp_set_status(req, "403 Forbidden");
     httpd_resp_send(req, pleaseloginfirstmsg, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
   }
-  myresponse = calloc(20000, 1); /* FIXME calculate a realistic size */
+  /* Get selected subpage (if any) */
+  if (httpd_req_get_url_query_str(req, tmp1, sizeof(tmp1)-1) == ESP_OK) {
+    /* We have a query string. Is there a sp=...? */
+    if (httpd_query_key_value(tmp1, "sp", subpage, sizeof(subpage)-1) != ESP_OK) {
+      strcpy(subpage, "main");
+    } else {
+      /* Nothing else to do - there was a sp parameter and it has been filled */
+    }
+  } else {
+    strcpy(subpage, "main");
+  }
+  myresponse = calloc(10000, 1); /* FIXME calculate a realistic size */
   if (myresponse == NULL) {
     httpd_resp_set_status(req, "500 Internal Server Error");
     httpd_resp_send(req, "Out of memory.", HTTPD_RESP_USE_STRLEN);
@@ -349,70 +358,86 @@ esp_err_t get_adminmenu_handler(httpd_req_t * req) {
                             " lots of consequential ESP_ERR_NVS_INVALID_HANDLE"
                             " errors directly below this.");
   }
-  strcpy(myresponse, adminmenu_p1);
-  pfp = myresponse + strlen(myresponse);
-  const esp_app_desc_t * appd = esp_app_get_description();
-  pfp += sprintf(pfp, "%s version %s compiled %s %s",
-                 appd->project_name, appd->version, appd->date, appd->time);
-  strcat(pfp, adminmenu_p2);
-  if (pendingfwverify > 0) { /* notification that firmware has not been marked as good yet */
-    strcat(pfp, adminmenu_fww);
-  }
-  strcat(pfp, adminmenu_p3);
-  /* this is the WiFi settings section. */
-  strcat(pfp, "<tr><th><label for=\"wifi_mode\">WiFi mode:</label></th><td>");
-  strcat(pfp, "<select name=\"wifi_mode\" id=\"wifi_mode\">");
-  uint8_t curs = getu8setting(nvshandle, "wifi_mode");
-  pfp = pfp + strlen(pfp);
-  pfp += sprintf(pfp, "<option value=\"0\"%s>Access Point</option>", ((curs == 0) ? " selected" : ""));
-  pfp += sprintf(pfp, "<option value=\"1\"%s>Client</option>", ((curs == 1) ? " selected" : ""));
-  pfp += sprintf(pfp, "%s", "</select></td></tr><tr><th colspan=\"2\">For AccessPoint-Mode:</th></tr>");
-  pfp += sprintf(pfp, "%s", "<tr><th><label for=\"wifi_ap_ssid\">WiFi SSID:</label></th><td>");
-  getstrsetting(nvshandle, "wifi_ap_ssid", tmp1, sizeof(tmp1));
-  if (strlen(tmp1) == 0) { // for this setting, if there is no setting in flash,
-    // we will as an exception take the currently active value (which WILL be
-    // the default) from the settings variable.
-    strcpy(tmp1, settings.wifi_ap_ssid);
-  }
-  pfp += sprintf(pfp, "<input type=\"text\" name=\"wifi_ap_ssid\" id=\"wifi_ap_ssid\" value=\"%s\"></td></tr>", tmp1);
-  pfp += sprintf(pfp, "%s", "<tr><th><label for=\"wifi_ap_pw\">WiFi password (leave empty for 'open' mode):</label></th><td>");
-  getstrsetting(nvshandle, "wifi_ap_pw", tmp1, sizeof(tmp1));
-  pfp += sprintf(pfp, "<input type=\"text\" name=\"wifi_ap_pw\" id=\"wifi_ap_pw\" value=\"%s\"></td></tr>", tmp1);
-  pfp += sprintf(pfp, "%s", "<tr><th colspan=\"2\">For Client-Mode:</th></tr>");
-  pfp += sprintf(pfp, "%s", "<tr><th><label for=\"wifi_cl_ssid\">WiFi SSID:</label></th>");
-  getstrsetting(nvshandle, "wifi_cl_ssid", tmp1, sizeof(tmp1));
-  pfp += sprintf(pfp, "<td><input type=\"text\" name=\"wifi_cl_ssid\" id=\"wifi_cl_ssid\" value=\"%s\"></td></tr>", tmp1);
-  pfp += sprintf(pfp, "%s", "<tr><th><label for=\"wifi_cl_pw\">WiFi password:</label></th>");
-  getstrsetting(nvshandle, "wifi_cl_pw", tmp1, sizeof(tmp1));
-  pfp += sprintf(pfp, "<td><input type=\"text\" name=\"wifi_cl_pw\" id=\"wifi_cl_pw\" value=\"%s\"></td></tr>", tmp1);
-  strcat(pfp, adminmenu_p4);
-  pfp = pfp + strlen(pfp);
-  pfp += sprintf(pfp, "%s", "<tr><th>I2C 0 GPIOs</th><td><label for=\"i2c_0_scl\">SCL:</label>");
-  pfp += sprintf(pfp, "%s", "<select name=\"i2c_0_scl\" id=\"i2c_0_scl\">");
-  curs = getu8setting(nvshandle, "i2c_0_scl");
-  pfp += sprintf(pfp, "<option value=\"0\"%s>disabled</option>", ((curs == 0) ? " selected" : ""));
-  for (int i = 0; i < 63; i++) {
-    if (GPIO_IS_VALID_GPIO(i)) {
-      pfp += sprintf(pfp, "<option value=\"%d\"%s>%d</option>", (i+1), ((curs == (i +1)) ? " selected" : ""), i);
+  if (strcmp(subpage, "main") == 0) { /* Main page - this includes the others via JS */
+    strcpy(myresponse, adminmenu_p1);
+    pfp = myresponse + strlen(myresponse);
+    const esp_app_desc_t * appd = esp_app_get_description();
+    pfp += sprintf(pfp, "%s version %s compiled %s %s",
+                   appd->project_name, appd->version, appd->date, appd->time);
+    strcat(pfp, adminmenu_p2);
+    if (pendingfwverify > 0) { /* notification that firmware has not been marked as good yet */
+      strcat(pfp, adminmenu_fww);
     }
-  }
-  pfp += sprintf(pfp, "%s", "</select> <label for=\"i2c_0_scl\">SDA:</label>");
-  pfp += sprintf(pfp, "%s", "<select name=\"i2c_0_sda\" id=\"i2c_0_sda\">");
-  curs = getu8setting(nvshandle, "i2c_0_sda");
-  pfp += sprintf(pfp, "<option value=\"0\"%s>disabled</option>", ((curs == 0) ? " selected" : ""));
-  for (int i = 0; i < 63; i++) {
-    if (GPIO_IS_VALID_GPIO(i)) {
-      pfp += sprintf(pfp, "<option value=\"%d\"%s>%d</option>", (i+1), ((curs == (i +1)) ? " selected" : ""), i);
+    strcat(pfp, adminmenu_p3);
+  } else if (strcmp(subpage, "setwifi") == 0) { /* WiFi settings */
+    strcpy(myresponse, "<form action=\"savesettings\" method=\"POST\" onsubmit=\"submitsettings(event)\">");
+    strcat(myresponse, "<table><tr><th><label for=\"wifi_mode\">WiFi mode:</label></th><td>");
+    strcat(myresponse, "<select name=\"wifi_mode\" id=\"wifi_mode\">");
+    curs = getu8setting(nvshandle, "wifi_mode");
+    pfp = myresponse + strlen(myresponse);
+    pfp += sprintf(pfp, "<option value=\"0\"%s>Access Point</option>", ((curs == 0) ? " selected" : ""));
+    pfp += sprintf(pfp, "<option value=\"1\"%s>Client</option>", ((curs == 1) ? " selected" : ""));
+    pfp += sprintf(pfp, "%s", "</select></td></tr><tr><th colspan=\"2\">For AccessPoint-Mode:</th></tr>");
+    pfp += sprintf(pfp, "%s", "<tr><th><label for=\"wifi_ap_ssid\">WiFi SSID:</label></th><td>");
+    getstrsetting(nvshandle, "wifi_ap_ssid", tmp1, sizeof(tmp1));
+    if (strlen(tmp1) == 0) { // for this setting, if there is no setting in flash,
+      // we will as an exception take the currently active value (which WILL be
+      // the default) from the settings variable.
+      strcpy(tmp1, settings.wifi_ap_ssid);
     }
+    pfp += sprintf(pfp, "<input type=\"text\" name=\"wifi_ap_ssid\" id=\"wifi_ap_ssid\" value=\"%s\"></td></tr>", tmp1);
+    pfp += sprintf(pfp, "%s", "<tr><th><label for=\"wifi_ap_pw\">WiFi password (leave empty for 'open' mode):</label></th><td>");
+    getstrsetting(nvshandle, "wifi_ap_pw", tmp1, sizeof(tmp1));
+    pfp += sprintf(pfp, "<input type=\"text\" name=\"wifi_ap_pw\" id=\"wifi_ap_pw\" value=\"%s\"></td></tr>", tmp1);
+    pfp += sprintf(pfp, "%s", "<tr><th colspan=\"2\">For Client-Mode:</th></tr>");
+    pfp += sprintf(pfp, "%s", "<tr><th><label for=\"wifi_cl_ssid\">WiFi SSID:</label></th>");
+    getstrsetting(nvshandle, "wifi_cl_ssid", tmp1, sizeof(tmp1));
+    pfp += sprintf(pfp, "<td><input type=\"text\" name=\"wifi_cl_ssid\" id=\"wifi_cl_ssid\" value=\"%s\"></td></tr>", tmp1);
+    pfp += sprintf(pfp, "%s", "<tr><th><label for=\"wifi_cl_pw\">WiFi password:</label></th>");
+    getstrsetting(nvshandle, "wifi_cl_pw", tmp1, sizeof(tmp1));
+    pfp += sprintf(pfp, "<td><input type=\"text\" name=\"wifi_cl_pw\" id=\"wifi_cl_pw\" value=\"%s\"></td></tr>", tmp1);
+    strcat(pfp, "<tr><th colspan=\"2\"><input type=\"submit\" name=\"su\" value=\"Set\"></th></tr>");
+    strcat(pfp, "</table></form><br>");
+  } else if (strcmp(subpage, "setwiring") == 0) { /* External Wiring settings */
+    strcpy(myresponse, "<form action=\"savesettings\" method=\"POST\" onsubmit=\"submitsettings(event)\">");
+    strcat(myresponse, "<table>");
+    
+    for (int i2cport = 0; i2cport <= 1; i2cport++) {
+      pfp = myresponse + strlen(myresponse);
+      pfp += sprintf(pfp, "<tr><th>I2C %d GPIOs</th><td><label for=\"i2c_%d_scl\">SCL:</label>", i2cport, i2cport);
+      pfp += sprintf(pfp, "<select name=\"i2c_%d_scl\" id=\"i2c_%d_scl\">", i2cport, i2cport);
+      sprintf(tmp1, "i2c_%d_scl", i2cport);
+      curs = getu8setting(nvshandle, tmp1);
+      pfp += sprintf(pfp, "<option value=\"0\"%s>disabled</option>", ((curs == 0) ? " selected" : ""));
+      for (int i = 0; i < 63; i++) {
+        if (GPIO_IS_VALID_GPIO(i)) {
+          pfp += sprintf(pfp, "<option value=\"%d\"%s>%d</option>", (i+1), ((curs == (i +1)) ? " selected" : ""), i);
+        }
+      }
+      pfp += sprintf(pfp, "</select> <label for=\"i2c_%d_scl\">SDA:</label>", i2cport);
+      pfp += sprintf(pfp, "<select name=\"i2c_%d_sda\" id=\"i2c_%d_sda\">", i2cport, i2cport);
+      sprintf(tmp1, "i2c_%d_sda", i2cport);
+      curs = getu8setting(nvshandle, tmp1);
+      pfp += sprintf(pfp, "<option value=\"0\"%s>disabled</option>", ((curs == 0) ? " selected" : ""));
+      for (int i = 0; i < 63; i++) {
+        if (GPIO_IS_VALID_GPIO(i)) {
+          pfp += sprintf(pfp, "<option value=\"%d\"%s>%d</option>", (i+1), ((curs == (i +1)) ? " selected" : ""), i);
+        }
+      }
+      pfp += sprintf(pfp, "%s", "</select><br>");
+      sprintf(tmp1, "i2c_%d_pullups", i2cport);
+      curs = getu8setting(nvshandle, tmp1);
+      pfp += sprintf(pfp, "<select id=\"i2c_%d_pullups\" name=\"i2c_%d_pullups\">", i2cport, i2cport);
+      pfp += sprintf(pfp, "<option value=\"0\"%s>Disable pullups</option>", ((curs == 0) ? " selected" : ""));
+      pfp += sprintf(pfp, "<option value=\"1\"%s>Enable pullups</option>", ((curs == 1) ? " selected" : ""));
+      pfp += sprintf(pfp, "%s", "</select></td></tr>");
+    }
+    /* FIXME serial pins */
+    strcat(pfp, "<tr><th colspan=\"2\"><input type=\"submit\" name=\"su\" value=\"Set\"></th></tr>");
+    strcat(pfp, "</table></form><br>");
+  } else {
+    strcpy(myresponse, "??? Unknown subpage requested.");
   }
-  pfp += sprintf(pfp, "%s", "</select><br>");
-  curs = getu8setting(nvshandle, "i2c_0_pullups");
-  pfp += sprintf(pfp, "%s", "<select id=\"i2c_0_pullups\" name=\"i2c_0_pullups\">");
-  pfp += sprintf(pfp, "<option value=\"0\"%s>Disable pullups</option>", ((curs == 0) ? " selected" : ""));
-  pfp += sprintf(pfp, "<option value=\"1\"%s>Enable pullups</option>", ((curs == 1) ? " selected" : ""));
-  pfp += sprintf(pfp, "%s", "</select></td></tr>");
-  /* FIXME serial pins */
-  strcat(pfp, adminmenu_p5);
   /* The following two lines are the default und thus redundant. */
   httpd_resp_set_status(req, "200 OK");
   httpd_resp_set_type(req, "text/html");

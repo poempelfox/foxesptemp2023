@@ -7,7 +7,7 @@ set(COMPONENT_ADD_INCLUDEDIRS "")
 set(COMPONENT_EMBED_TXTFILES "web/css.css.min"
                              "web/startpage.html.p00" "web/startpage.html.p01"
                              "web/startpage.js.min"
-                             "web/adminmenu.html.p00" "web/adminmenu.html.p01" "web/adminmenu.html.p02" "web/adminmenu.html.p03" "web/adminmenu.html.p04"
+                             "web/adminmenu.html.p00" "web/adminmenu.html.p01" "web/adminmenu.html.p02"
 )
 
 register_component()

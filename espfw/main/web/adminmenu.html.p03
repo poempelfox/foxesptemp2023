@@ -1,6 +1,0 @@
-<tr><th colspan="2"><input type="submit" name="su" value="Set"></th></tr>
-</table>
-</form><br>
-<h4>External wiring</h4>
-<form action="savesettings" method="POST" onsubmit="submitsettings(event)">
-<table>

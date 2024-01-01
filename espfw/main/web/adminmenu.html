@@ -67,22 +67,30 @@ function submitsettings(e) {
   XHR.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
   XHR.send(new URLSearchParams(FD));
 }
+function togset(e, s) {
+  const XHR = new XMLHttpRequest();
+  document.getElementById(s).style.display = "block";
+  var oldtxt = e.srcElement.innerHTML;
+  e.srcElement.innerHTML = "&#9660;" + oldtxt.substring(1);
+  XHR.addEventListener("load", (event) => {
+    var sr = document.getElementById(s);
+    sr.innerHTML = event.target.responseText;
+  });
+  // Define what happens in case of error
+  XHR.addEventListener("error", (event) => {
+    var sr = document.getElementById(s);
+    sr.innerHTML = "There was an error loading those settings from the server.";
+  });
+  XHR.open("GET", "adminmenu.html?" + s);
+  XHR.send();
+}
 </script>
 <h3>Settings<h3>
 <div id="settingsresult"></div>
-<h4>WiFi</h4>
-<form action="savesettings" method="POST" onsubmit="submitsettings(event)">
-<table>
-XXXXXXXXXX
-<tr><th colspan="2"><input type="submit" name="su" value="Set"></th></tr>
-</table>
-</form><br>
-<h4>External wiring</h4>
-<form action="savesettings" method="POST" onsubmit="submitsettings(event)">
-<table>
-XXXXXXXXXX
-<tr><th colspan="2"><input type="submit" name="su" value="Set"></th></tr>
-</table>
-</form><br>
+<h4 onclick="togset(event, 'setwifi');">&#9656; WiFi</h4>
+<div id="setwifi" style="display:none;">Loading... (note: this requires Javascript!)</div>
+<h4 onclick="togset(event, 'setwiring');">&#9656; External wiring</h4>
+<div id="setwiring" style="display:none;">Loading... (note: this requires Javascript!)</div>
+<!-- more settings to come -->
 </body></html>
 

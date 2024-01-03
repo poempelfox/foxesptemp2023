@@ -1,8 +1,10 @@
 /* Talking to SCD41 CO2 sensors */
 
-#include "esp_log.h"
+#include <driver/i2c.h>
+#include <esp_log.h>
 #include "scd41.h"
 #include "sdkconfig.h"
+#include "settings.h"
 
 
 #define SCD41ADDR 0x62
@@ -11,9 +13,19 @@
 
 static i2c_port_t scd41i2cport;
 
-void scd41_init(i2c_port_t port)
+void scd41_init(void)
 {
-    scd41i2cport = port;
+    if (settings.scd41_i2cport > 0) {
+      /* An I2C-port is configured, but is that port disabled? */
+      if ((settings.i2c_n_scl[settings.scd41_i2cport - 1] == 0)
+       || (settings.i2c_n_sda[settings.scd41_i2cport - 1] == 0)) {
+        /* It is. Force disabled-setting for us too. */
+        settings.scd41_i2cport = 0;
+        ESP_LOGW("scd41.c", "WARNING: SCD41 automatically disabled because it is connected to a disabled I2C port.");
+      }
+    }
+    if (settings.scd41_i2cport == 0) return;
+    scd41i2cport = ((settings.scd41_i2cport == 1) ? I2C_NUM_0 : I2C_NUM_1);
 
     /* The default power-on-config of the sensor should
      * be perfectly fine for us, so there is nothing to
@@ -22,6 +34,7 @@ void scd41_init(i2c_port_t port)
 
 void scd41_startmeas(void)
 {
+    if (settings.scd41_i2cport == 0) return;
     uint8_t cmd[2] = { 0x21, 0xac };
     i2c_master_write_to_device(scd41i2cport, SCD41ADDR,
                                cmd, sizeof(cmd),
@@ -32,6 +45,7 @@ void scd41_startmeas(void)
 
 void scd41_stopmeas(void)
 {
+    if (settings.scd41_i2cport == 0) return;
     uint8_t cmd[2] = { 0x3f, 0x86 };
     i2c_master_write_to_device(scd41i2cport, SCD41ADDR,
                                cmd, sizeof(cmd),
@@ -68,14 +82,15 @@ static uint8_t scd41_crc(uint8_t b1, uint8_t b2)
 
 void scd41_read(struct scd41data * d)
 {
+    d->valid = 0;
+    d->co2 = 0xffff;  d->tempraw = 0xffff; d->humraw = 0xffff;
+    d->temp = -999.9; d->hum = -999.99;
+    if (settings.scd41_i2cport == 0) return;
     uint8_t readbuf[9];
     uint8_t cmd[2] = { 0xec, 0x05 };
     i2c_master_write_to_device(scd41i2cport, SCD41ADDR,
                                cmd, sizeof(cmd),
                                I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
-    d->valid = 0;
-    d->co2 = 0xffff;  d->tempraw = 0xffff; d->humraw = 0xffff;
-    d->temp = -999.9; d->hum = -999.99;
     /* Datasheet says we need to give the sensor at least 1 ms time before
      * we can read the data */
     vTaskDelay(pdMS_TO_TICKS(2));

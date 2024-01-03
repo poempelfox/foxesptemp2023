@@ -1,27 +1,40 @@
 /* Talking to SEN50 particulate matter sensors */
 
-#include "esp_log.h"
+#include <driver/i2c.h>
+#include <esp_log.h>
 #include "sen50.h"
 #include "sdkconfig.h"
+#include "settings.h"
 
 
-#define SEN50ADDR 0x69
+#define SEN50ADDR 0x69 /* This is fixed. */
 
 #define I2C_MASTER_TIMEOUT_MS 100  /* Timeout for I2C communication */
 
 static i2c_port_t sen50i2cport;
 
-void sen50_init(i2c_port_t port)
+void sen50_init(void)
 {
-    sen50i2cport = port;
+  if (settings.sen50_i2cport > 0) {
+    /* An I2C-port is configured, but is that port disabled? */
+    if ((settings.i2c_n_scl[settings.sen50_i2cport - 1] == 0)
+     || (settings.i2c_n_sda[settings.sen50_i2cport - 1] == 0)) {
+      /* It is. Force disabled-setting for us too. */
+      settings.sen50_i2cport = 0;
+      ESP_LOGW("sen50.c", "WARNING: SEN50 automatically disabled because it is connected to a disabled I2C port.");
+    }
+  }
+  if (settings.sen50_i2cport == 0) return;
+  sen50i2cport = ((settings.sen50_i2cport == 1) ? I2C_NUM_0 : I2C_NUM_1);
 
-    /* The default power-on-config of the sensor should
-     * be perfectly fine for us, so there is nothing to
-     * configure here. */
+  /* The default power-on-config of the sensor should
+   * be perfectly fine for us, so there is nothing to
+   * configure here. */
 }
 
 void sen50_startmeas(void)
 {
+    if (settings.sen50_i2cport == 0) return;
     uint8_t cmd[2] = { 0x00, 0x21 };
     i2c_master_write_to_device(sen50i2cport, SEN50ADDR,
                                cmd, sizeof(cmd),
@@ -32,6 +45,7 @@ void sen50_startmeas(void)
 
 void sen50_stopmeas(void)
 {
+    if (settings.sen50_i2cport == 0) return;
     uint8_t cmd[2] = { 0x01, 0x04 };
     i2c_master_write_to_device(sen50i2cport, SEN50ADDR,
                                cmd, sizeof(cmd),
@@ -68,14 +82,15 @@ static uint8_t sen50_crc(uint8_t b1, uint8_t b2)
 
 void sen50_read(struct sen50data * d)
 {
+    d->valid = 0;
+    d->pm010raw = 0xffff;  d->pm025raw = 0xffff; d->pm040raw = 0xffff; d->pm100raw = 0xffff;
+    d->pm010 = -999.99; d->pm025 = -999.9; d->pm040 = -999.99; d->pm100 = -999.9;
+    if (settings.sen50_i2cport == 0) return;
     uint8_t readbuf[23];
     uint8_t cmd[2] = { 0x03, 0xc4 };
     i2c_master_write_to_device(sen50i2cport, SEN50ADDR,
                                cmd, sizeof(cmd),
                                I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
-    d->valid = 0;
-    d->pm010raw = 0xffff;  d->pm025raw = 0xffff; d->pm040raw = 0xffff; d->pm100raw = 0xffff;
-    d->pm010 = -999.99; d->pm025 = -999.9; d->pm040 = -999.99; d->pm100 = -999.9;
     /* Datasheet says we need to give the sensor at least 20 ms time before
      * we can read the data so that it can fill its internal buffers */
     vTaskDelay(pdMS_TO_TICKS(22));

@@ -4,8 +4,6 @@
 #ifndef _SEN50_H_
 #define _SEN50_H_
 
-#include "driver/i2c.h" /* Needed for i2c_port_t */
-
 struct sen50data {
   uint8_t valid;
   uint16_t pm010raw; /* PM 1 */
@@ -19,7 +17,7 @@ struct sen50data {
 };
 
 /* Initialize the SEN50 */
-void sen50_init(i2c_port_t port);
+void sen50_init(void);
 
 /* Start measurements on the SEN50. */
 void sen50_startmeas(void);

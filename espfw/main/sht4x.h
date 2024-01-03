@@ -4,8 +4,6 @@
 #ifndef _SHT4X_H_
 #define _SHT4X_H_
 
-#include "driver/i2c.h" /* Needed for i2c_port_t */
-
 struct sht4xdata {
   uint8_t valid;
   uint16_t tempraw;
@@ -15,7 +13,7 @@ struct sht4xdata {
 };
 
 /* Initialize the SHT4x */
-void sht4x_init(i2c_port_t port);
+void sht4x_init(void);
 
 /* Request a oneshot-measurement from the SHT4x */
 void sht4x_startmeas(void);

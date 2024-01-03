@@ -1,11 +1,12 @@
 /* Talking to SHT4x (SHT40, SHT41, SHT45) temperature / humidity sensors */
 
-#include "esp_log.h"
+#include <driver/i2c.h>
+#include <esp_log.h>
 #include "sht4x.h"
 #include "sdkconfig.h"
+#include "settings.h"
 
-
-#define SHT4XADDR 0x44
+#define SHT4XBASEADDR 0x44 /* there are variants with 0x45 and 0x46, but 0x44 is by far the most common. */
 
 /* Measurement with high precision */
 #define SHT4X_CMD_MEASURE_HIGH 0xFD
@@ -15,10 +16,22 @@
 #define I2C_MASTER_TIMEOUT_MS 1000  /* Timeout for I2C communication */
 
 static i2c_port_t sht4xi2cport;
+static uint8_t sht4xaddr;
 
-void sht4x_init(i2c_port_t port)
+void sht4x_init(void)
 {
-    sht4xi2cport = port;
+    if (settings.sht4x_i2cport > 0) {
+      /* An I2C-port is configured, but is that port disabled? */
+      if ((settings.i2c_n_scl[settings.sht4x_i2cport - 1] == 0)
+       || (settings.i2c_n_sda[settings.sht4x_i2cport - 1] == 0)) {
+        /* It is. Force disabled-setting for us too. */
+        settings.sht4x_i2cport = 0;
+        ESP_LOGW("sht4x.c", "WARNING: SHT4x automatically disabled because it is connected to a disabled I2C port.");
+      }
+    }
+    if (settings.sht4x_i2cport == 0) return;
+    sht4xi2cport = ((settings.sht4x_i2cport == 1) ? I2C_NUM_0 : I2C_NUM_1);
+    sht4xaddr = SHT4XBASEADDR + settings.sht4x_addr;
 
     /* The default power-on-config of the sensor should
      * be perfectly fine for us, so there is nothing to
@@ -27,8 +40,9 @@ void sht4x_init(i2c_port_t port)
 
 void sht4x_startmeas(void)
 {
+    if (settings.sht4x_i2cport == 0) return;
     uint8_t cmd[1] = { SHT4X_CMD_MEASURE_HIGH };
-    i2c_master_write_to_device(sht4xi2cport, SHT4XADDR,
+    i2c_master_write_to_device(sht4xi2cport, sht4xaddr,
                                cmd, sizeof(cmd),
                                pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS));
     /* We ignore the return value. If that failed, we'll notice
@@ -66,7 +80,8 @@ void sht4x_read(struct sht4xdata * d)
     uint8_t readbuf[6];
     d->valid = 0; d->tempraw = 0xffff;  d->humraw = 0xffff;
     d->temp = -999.99; d->hum = 200.0;
-    int res = i2c_master_read_from_device(sht4xi2cport, SHT4XADDR,
+    if (settings.sht4x_i2cport == 0) return;
+    int res = i2c_master_read_from_device(sht4xi2cport, sht4xaddr,
                                           readbuf, sizeof(readbuf),
                                           I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
     if (res != ESP_OK) {
@@ -97,9 +112,10 @@ void sht4x_read(struct sht4xdata * d)
 
 void sht4x_heatercycle(void)
 {
+    if (settings.sht4x_i2cport == 0) return;
     uint8_t cmd[1] = { SHT4X_CMD_HEAT_MID_LONG };
     ESP_LOGI("sht4x.c", "turning SHT4x heater on for 1.0 seconds at medium power (110 mW).");
-    i2c_master_write_to_device(sht4xi2cport, SHT4XADDR,
+    i2c_master_write_to_device(sht4xi2cport, sht4xaddr,
                                cmd, sizeof(cmd),
                                I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
 }

@@ -50,13 +50,28 @@ void settings_load(void)
     ESP_LOGE("settings.c", "Failed to read setting from flash. Using defaults.");
     return;
   }
+  loadstr(nvshandle, "adminpw", settings.adminpw, sizeof(settings.adminpw));
   loadu8(nvshandle, "wifi_mode", &(settings.wifi_mode));
   loadstr(nvshandle, "wifi_cl_ssid", settings.wifi_cl_ssid, sizeof(settings.wifi_cl_ssid));
   loadstr(nvshandle, "wifi_cl_pw", settings.wifi_cl_pw, sizeof(settings.wifi_cl_pw));
   loadstr(nvshandle, "wifi_ap_ssid", settings.wifi_ap_ssid, sizeof(settings.wifi_ap_ssid));
   loadstr(nvshandle, "wifi_ap_pw", settings.wifi_ap_pw, sizeof(settings.wifi_ap_pw));
-  loadstr(nvshandle, "adminpw", settings.adminpw, sizeof(settings.adminpw));
   loadstr(nvshandle, "wpdtoken", settings.wpdtoken, sizeof(settings.wpdtoken));
+  uint8_t tmp1[20];
+  for (int i2cp = 0; i2cp <= 1; i2cp++) {
+    sprintf(tmp1, "i2c_%d_scl", i2cp);
+    loadu8(nvshandle, tmp1, &(settings.i2c_n_scl[i2cp]));
+    sprintf(tmp1, "i2c_%d_sda", i2cp);
+    loadu8(nvshandle, tmp1, &(settings.i2c_n_sda[i2cp]));
+    sprintf(tmp1, "i2c_%d_pullups", i2cp);
+    loadu8(nvshandle, tmp1, &(settings.i2c_n_pullups[i2cp]));
+  }
+  loadu8(nvshandle, "lps35hw_i2cport", &(settings.lps35hw_i2cport));
+  loadu8(nvshandle, "lps35hw_addr", &(settings.lps35hw_addr));
+  loadu8(nvshandle, "scd41_i2cport", &(settings.scd41_i2cport));
+  loadu8(nvshandle, "sen50_i2cport", &(settings.sen50_i2cport));
+  loadu8(nvshandle, "sht4x_addr", &(settings.sht4x_addr));
+  loadu8(nvshandle, "sht4x_i2cport", &(settings.sht4x_i2cport));
   nvs_close(nvshandle);
 }
 

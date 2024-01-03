@@ -71,12 +71,12 @@ void app_main(void)
 
     /* Configure our 2 I2C-ports, and then the sensors connected there. */
     i2c_port_init();
-    sht4x_init(I2C_NUM_0);
-    lps35hw_init(I2C_NUM_0);
+    sht4x_init();
+    lps35hw_init();
     rg15_init();
-    scd41_init(I2C_NUM_0);
+    scd41_init();
     scd41_startmeas();
-    sen50_init(I2C_NUM_1);
+    sen50_init();
     sen50_startmeas(); /* FIXME Perhaps we don't want this on all the time. */    
     vTaskDelay(pdMS_TO_TICKS(3000)); /* Mainly to give the RG15 a chance to */
     /* process our initialization sequence, though that doesn't always work. */

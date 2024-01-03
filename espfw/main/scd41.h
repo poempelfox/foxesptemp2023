@@ -4,8 +4,6 @@
 #ifndef _SCD41_H_
 #define _SCD41_H_
 
-#include "driver/i2c.h" /* Needed for i2c_port_t */
-
 struct scd41data {
   uint8_t valid;
   uint16_t co2; /* CO2 - no 'raw' because there is no conversion needed. */
@@ -19,7 +17,7 @@ struct scd41data {
 };
 
 /* Initialize the SCD41 */
-void scd41_init(i2c_port_t port);
+void scd41_init(void);
 
 /* Start periodic measurements on the SCD41.
  * Note: We use the low power mode that provides a measurement every 30s,

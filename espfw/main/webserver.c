@@ -175,20 +175,29 @@ esp_err_t get_startpage_handler(httpd_req_t * req) {
   strcpy(myresponse, startp_p1);
   pfp = myresponse + strlen(startp_p1);
   pfp += sprintf(pfp, "<table><tr><th>UpdateTS</th><td id=\"ts\">%lld</td></tr>", evs[e].lastupd);
-  pfp += sprintf(pfp, "<tr><th>LastSHT4xHeaterTS</th><td id=\"lastsht4xheat\">%lld</td></tr>", evs[e].lastsht4xheat);
-  pfp += sprintf(pfp, "<tr><th>Temperature (C)</th><td id=\"temp\">%.2f</td></tr>", evs[e].temp);
-  pfp += sprintf(pfp, "<tr><th>Humidity (%%)</th><td id=\"hum\">%.1f</td></tr>", evs[e].hum);
-  pfp += sprintf(pfp, "<tr><th>PM 1.0 (&micro;g/m&sup3;)</th><td id=\"pm010\">%.1f</td></tr>", evs[e].pm010);
-  pfp += sprintf(pfp, "<tr><th>PM 2.5 (&micro;g/m&sup3;)</th><td id=\"pm025\">%.1f</td></tr>", evs[e].pm025);
-  pfp += sprintf(pfp, "<tr><th>PM 4.0 (&micro;g/m&sup3;)</th><td id=\"pm040\">%.1f</td></tr>", evs[e].pm040);
-  pfp += sprintf(pfp, "<tr><th>PM 10.0 (&micro;g/m&sup3;)</th><td id=\"pm100\">%.1f</td></tr>", evs[e].pm100);
-  pfp += sprintf(pfp, "<tr><th>Pressure (hPa)</th><td id=\"press\">%.3f</td></tr>", evs[e].press);
+  if (settings.sht4x_i2cport > 0) { // SHT4X is enabled
+    pfp += sprintf(pfp, "<tr><th>LastSHT4xHeaterTS</th><td id=\"lastsht4xheat\">%lld</td></tr>", evs[e].lastsht4xheat);
+    pfp += sprintf(pfp, "<tr><th>Temperature (C)</th><td id=\"temp\">%.2f</td></tr>", evs[e].temp);
+    pfp += sprintf(pfp, "<tr><th>Humidity (%%)</th><td id=\"hum\">%.1f</td></tr>", evs[e].hum);
+  }
+  if (settings.sen50_i2cport > 0) { // SEN50 is enabled
+    pfp += sprintf(pfp, "<tr><th>PM 1.0 (&micro;g/m&sup3;)</th><td id=\"pm010\">%.1f</td></tr>", evs[e].pm010);
+    pfp += sprintf(pfp, "<tr><th>PM 2.5 (&micro;g/m&sup3;)</th><td id=\"pm025\">%.1f</td></tr>", evs[e].pm025);
+    pfp += sprintf(pfp, "<tr><th>PM 4.0 (&micro;g/m&sup3;)</th><td id=\"pm040\">%.1f</td></tr>", evs[e].pm040);
+    pfp += sprintf(pfp, "<tr><th>PM 10.0 (&micro;g/m&sup3;)</th><td id=\"pm100\">%.1f</td></tr>", evs[e].pm100);
+  }
+  if (settings.lps35hw_i2cport > 0) { // LPS35HW is enabled
+    pfp += sprintf(pfp, "<tr><th>Pressure (hPa)</th><td id=\"press\">%.3f</td></tr>", evs[e].press);
+  }
   pfp += sprintf(pfp, "<tr><th>Rain (mm/min)</th><td id=\"raing\">%.2f</td></tr>", evs[e].raing);
-  pfp += sprintf(pfp, "<tr><th>CO2 (ppm)</th><td id=\"co2\">%u</td></tr>", evs[e].co2);
+  if (settings.scd41_i2cport > 0) { // SCD41 is enabled
+    pfp += sprintf(pfp, "<tr><th>CO2 (ppm)</th><td id=\"co2\">%u</td></tr>", evs[e].co2);
+  }
   pfp += sprintf(pfp, "</table>");
+  strcat(myresponse, startp_p2);
   /* The following two lines are the default und thus redundant. */
   httpd_resp_set_status(req, "200 OK");
-  httpd_resp_set_type(req, "text/html");
+  httpd_resp_set_type(req, "text/html; charset=utf-8");
   httpd_resp_set_hdr(req, "Cache-Control", "public, max-age=29");
   httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
   return ESP_OK;
@@ -207,17 +216,26 @@ esp_err_t get_json_handler(httpd_req_t * req) {
   int e = activeevs;
   strcpy(myresponse, "");
   pfp = myresponse;
-  pfp += sprintf(pfp, "{\"ts\":\"%lld\",", evs[e].lastupd);
-  pfp += sprintf(pfp, "\"lastsht4xheat\":\"%lld\",", evs[e].lastsht4xheat);
-  pfp += sprintf(pfp, "\"temp\":\"%.2f\",", evs[e].temp);
-  pfp += sprintf(pfp, "\"hum\":\"%.1f\",", evs[e].hum);
-  pfp += sprintf(pfp, "\"pm010\":\"%.1f\",", evs[e].pm010);
-  pfp += sprintf(pfp, "\"pm025\":\"%.1f\",", evs[e].pm025);
-  pfp += sprintf(pfp, "\"pm040\":\"%.1f\",", evs[e].pm040);
-  pfp += sprintf(pfp, "\"pm100\":\"%.1f\",", evs[e].pm100);
-  pfp += sprintf(pfp, "\"press\":\"%.3f\",", evs[e].press);
+  pfp += sprintf(pfp, "{");
+  if (settings.sht4x_i2cport > 0) { // SHT4X is enabled
+    pfp += sprintf(pfp, "\"lastsht4xheat\":\"%lld\",", evs[e].lastsht4xheat);
+    pfp += sprintf(pfp, "\"temp\":\"%.2f\",", evs[e].temp);
+    pfp += sprintf(pfp, "\"hum\":\"%.1f\",", evs[e].hum);
+  }
+  if (settings.sen50_i2cport > 0) { // SEN50 is enabled
+    pfp += sprintf(pfp, "\"pm010\":\"%.1f\",", evs[e].pm010);
+    pfp += sprintf(pfp, "\"pm025\":\"%.1f\",", evs[e].pm025);
+    pfp += sprintf(pfp, "\"pm040\":\"%.1f\",", evs[e].pm040);
+    pfp += sprintf(pfp, "\"pm100\":\"%.1f\",", evs[e].pm100);
+  }
+  if (settings.lps35hw_i2cport > 0) { // LPS35HW is enabled
+    pfp += sprintf(pfp, "\"press\":\"%.3f\",", evs[e].press);
+  }
   pfp += sprintf(pfp, "\"raing\":\"%.2f\",", evs[e].raing);
-  pfp += sprintf(pfp, "\"co2\":\"%u\"}", evs[e].co2);
+  if (settings.scd41_i2cport > 0) { // SCD41 is enabled
+    pfp += sprintf(pfp, "\"co2\":\"%u\",", evs[e].co2);
+  }
+  pfp += sprintf(pfp, "\"ts\":\"%lld\"}", evs[e].lastupd);
   /* The following line is the default und thus redundant. */
   httpd_resp_set_status(req, "200 OK");
   httpd_resp_set_type(req, "application/json");
@@ -259,7 +277,7 @@ esp_err_t get_publicdebug_handler(httpd_req_t * req) {
   pfp += sprintf(pfp, "Last reset reason: %d<br>", esp_reset_reason());
   /* The following line is the default und thus redundant. */
   httpd_resp_set_status(req, "200 OK");
-  httpd_resp_set_type(req, "text/html");
+  httpd_resp_set_type(req, "text/html; charset=utf-8");
   httpd_resp_set_hdr(req, "Cache-Control", "public, max-age=29");
   httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
   return ESP_OK;
@@ -381,8 +399,8 @@ esp_err_t get_adminmenu_handler(httpd_req_t * req) {
     pfp += sprintf(pfp, "%s", "<tr><th><label for=\"wifi_ap_ssid\">WiFi SSID:</label></th><td>");
     getstrsetting(nvshandle, "wifi_ap_ssid", tmp1, sizeof(tmp1));
     if (strlen(tmp1) == 0) { // for this setting, if there is no setting in flash,
-      // we will as an exception take the currently active value (which WILL be
-      // the default) from the settings variable.
+      // we will as an exception take the currently active value (which will be
+      // a sane default generated from the MAC) from the settings variable.
       strcpy(tmp1, settings.wifi_ap_ssid);
     }
     pfp += sprintf(pfp, "<input type=\"text\" name=\"wifi_ap_ssid\" id=\"wifi_ap_ssid\" value=\"%s\"></td></tr>", tmp1);
@@ -401,7 +419,6 @@ esp_err_t get_adminmenu_handler(httpd_req_t * req) {
   } else if (strcmp(subpage, "setwiring") == 0) { /* External Wiring settings */
     strcpy(myresponse, "<form action=\"savesettings\" method=\"POST\" onsubmit=\"submitsettings(event)\">");
     strcat(myresponse, "<table>");
-    
     for (int i2cport = 0; i2cport <= 1; i2cport++) {
       pfp = myresponse + strlen(myresponse);
       pfp += sprintf(pfp, "<tr><th>I2C %d GPIOs</th><td><label for=\"i2c_%d_scl\">SCL:</label>", i2cport, i2cport);
@@ -435,12 +452,62 @@ esp_err_t get_adminmenu_handler(httpd_req_t * req) {
     /* FIXME serial pins */
     strcat(pfp, "<tr><th colspan=\"2\"><input type=\"submit\" name=\"su\" value=\"Set\"></th></tr>");
     strcat(pfp, "</table></form><br>");
+  } else if (strcmp(subpage, "setsensors") == 0) { /* Sensor settings */
+    strcpy(myresponse, "<form action=\"savesettings\" method=\"POST\" onsubmit=\"submitsettings(event)\">");
+    strcat(myresponse, "<table>");
+    pfp = myresponse + strlen(myresponse);
+    curs = getu8setting(nvshandle, "scd41_i2cport");
+    pfp += sprintf(pfp, "%s", "<tr><th>SCD41</th><td>");
+    pfp += sprintf(pfp, "%s", "<label for=\"scd41_i2cport\">I2C Port</label>:");
+    pfp += sprintf(pfp, "%s", "<select name=\"scd41_i2cport\" id=\"scd41_i2cport\">");
+    pfp += sprintf(pfp, "<option value=\"0\"%s>not connected</option>", ((curs == 0) ? " selected" : ""));
+    pfp += sprintf(pfp, "<option value=\"1\"%s>I2C 0</option>", ((curs == 1) ? " selected" : ""));
+    pfp += sprintf(pfp, "<option value=\"2\"%s>I2C 1</option>", ((curs == 2) ? " selected" : ""));
+    pfp += sprintf(pfp, "%s", "</select></td></tr>");
+    curs = getu8setting(nvshandle, "sen50_i2cport");
+    pfp += sprintf(pfp, "%s", "<tr><th>SEN50</th><td>");
+    pfp += sprintf(pfp, "%s", "<label for=\"sen50_i2cport\">I2C Port</label>:");
+    pfp += sprintf(pfp, "%s", "<select name=\"sen50_i2cport\" id=\"sen50_i2cport\">");
+    pfp += sprintf(pfp, "<option value=\"0\"%s>not connected</option>", ((curs == 0) ? " selected" : ""));
+    pfp += sprintf(pfp, "<option value=\"1\"%s>I2C 0</option>", ((curs == 1) ? " selected" : ""));
+    pfp += sprintf(pfp, "<option value=\"2\"%s>I2C 1</option>", ((curs == 2) ? " selected" : ""));
+    pfp += sprintf(pfp, "%s", "</select></td></tr>");
+    curs = getu8setting(nvshandle, "sht4x_i2cport");
+    pfp += sprintf(pfp, "%s", "<tr><th>SHT4x (SHT40/SHT41/SHT45)</th><td>");
+    pfp += sprintf(pfp, "%s", "<label for=\"sht4x_i2cport\">I2C Port</label>:");
+    pfp += sprintf(pfp, "%s", "<select name=\"sht4x_i2cport\" id=\"sht4x_i2cport\">");
+    pfp += sprintf(pfp, "<option value=\"0\"%s>not connected</option>", ((curs == 0) ? " selected" : ""));
+    pfp += sprintf(pfp, "<option value=\"1\"%s>I2C 0</option>", ((curs == 1) ? " selected" : ""));
+    pfp += sprintf(pfp, "<option value=\"2\"%s>I2C 1</option>", ((curs == 2) ? " selected" : ""));
+    pfp += sprintf(pfp, "%s", "</select><br><label for=\"sht4x_addr\">address</label>:");
+    curs = getu8setting(nvshandle, "sht4x_addr");
+    pfp += sprintf(pfp, "%s", "<select name=\"sht4x_addr\" id=\"sht4x_addr\">");
+    pfp += sprintf(pfp, "<option value=\"0\"%s>0x44 (most common)</option>", ((curs == 0) ? " selected" : ""));
+    pfp += sprintf(pfp, "<option value=\"1\"%s>0x45</option>", ((curs == 1) ? " selected" : ""));
+    pfp += sprintf(pfp, "<option value=\"2\"%s>0x46</option>", ((curs == 2) ? " selected" : ""));
+    pfp += sprintf(pfp, "%s", "</select></td></tr>");
+    curs = getu8setting(nvshandle, "lps35hw_i2cport");
+    pfp += sprintf(pfp, "%s", "<tr><th>LPS35HW</th><td>");
+    pfp += sprintf(pfp, "%s", "<label for=\"lps35hw_i2cport\">I2C Port</label>:");
+    pfp += sprintf(pfp, "%s", "<select name=\"lps35hw_i2cport\" id=\"lps35hw_i2cport\">");
+    pfp += sprintf(pfp, "<option value=\"0\"%s>not connected</option>", ((curs == 0) ? " selected" : ""));
+    pfp += sprintf(pfp, "<option value=\"1\"%s>I2C 0</option>", ((curs == 1) ? " selected" : ""));
+    pfp += sprintf(pfp, "<option value=\"2\"%s>I2C 1</option>", ((curs == 2) ? " selected" : ""));
+    pfp += sprintf(pfp, "%s", "</select><br><label for=\"lps35hw_addr\">address</label>:");
+    curs = getu8setting(nvshandle, "lps35hw_addr");
+    pfp += sprintf(pfp, "%s", "<select name=\"lps35hw_addr\" id=\"lps35hw_addr\">");
+    pfp += sprintf(pfp, "<option value=\"0\"%s>0x5c</option>", ((curs == 0) ? " selected" : ""));
+    pfp += sprintf(pfp, "<option value=\"1\"%s>0x5d</option>", ((curs == 1) ? " selected" : ""));
+    pfp += sprintf(pfp, "%s", "</select></td></tr>");
+    /* FIXME serial */
+    strcat(pfp, "<tr><th colspan=\"2\"><input type=\"submit\" name=\"su\" value=\"Set\"></th></tr>");
+    strcat(pfp, "</table></form><br>");
   } else {
     strcpy(myresponse, "??? Unknown subpage requested.");
   }
   /* The following two lines are the default und thus redundant. */
   httpd_resp_set_status(req, "200 OK");
-  httpd_resp_set_type(req, "text/html");
+  httpd_resp_set_type(req, "text/html; charset=utf-8");
   httpd_resp_set_hdr(req, "Cache-Control", "private, max-age=29");
   httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
   free(myresponse);
@@ -549,6 +616,7 @@ esp_err_t post_adminaction(httpd_req_t * req) {
     if (ret == ESP_OK) {
       ESP_LOGI("webserver.c", "OTA Succeed, Rebooting...");
       strcat(myresponse, "OTA Update reported success. Will reboot.");
+    strcat(myresponse, " <a href=\"./\">Reconnect after waiting for a few seconds.</a>");
       httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
       vTaskDelay(3 * (1000 / portTICK_PERIOD_MS)); 
       esp_restart();
@@ -562,6 +630,7 @@ esp_err_t post_adminaction(httpd_req_t * req) {
   } else if (strcmp(tmp1, "reboot") == 0) {
     ESP_LOGI("webserver.c", "Reboot requested by admin, Rebooting...");
     strcpy(myresponse, "OK, will reboot in 3 seconds.");
+    strcat(myresponse, " <a href=\"./\">Reconnect after waiting for a few seconds.</a>");
     httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
     vTaskDelay(3 * (1000 / portTICK_PERIOD_MS)); 
     esp_restart();
@@ -583,6 +652,7 @@ esp_err_t post_adminaction(httpd_req_t * req) {
     if (ret == ESP_OK) {
       ESP_LOGI("webserver.c", "markfirmwareasgood: Updated firmware is now marked as good.");
       strcpy(myresponse, "New firmware was successfully marked as good.");
+      strcat(myresponse, " <a href=\"./\">Reconnect after waiting for a few seconds.</a>");
       httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
     } else {
       ESP_LOGE("webserver.c", "markfirmwareasgood: Failed to mark updated firmware as good, will rollback on next reboot.");
@@ -618,14 +688,26 @@ struct u8set_s {
 };
 
 static const struct strset_s strsets[] = {
+  { .name = "adminpw", .minlen = 1, .maxlen = 24 },
   { .name = "wifi_ap_ssid", .minlen = 2, .maxlen = 32 },
   { .name = "wifi_ap_pw", .minlen = 0, .maxlen = 63 },
   { .name = "wifi_cl_ssid", .minlen = 2, .maxlen = 32 },
   { .name = "wifi_cl_pw", .minlen = 0, .maxlen = 63 },
-  { .name = "adminpw", .minlen = 1, .maxlen = 24 },
 };
 
 static const struct u8set_s u8sets[] = {
+  { .name = "lps35hw_addr", .minval = 0, .maxval = 1 },
+  { .name = "lps35hw_i2cport", .minval = 0, .maxval = 2 },
+  { .name = "scd41_i2cport", .minval = 0, .maxval = 2 },
+  { .name = "sen50_i2cport", .minval = 0, .maxval = 2 },
+  { .name = "sht4x_addr", .minval = 0, .maxval = 2 },
+  { .name = "sht4x_i2cport", .minval = 0, .maxval = 2 },
+  { .name = "i2c_0_pullups", .minval = 0, .maxval = 1 },
+  { .name = "i2c_0_scl", .minval = 0, .maxval = 64 },
+  { .name = "i2c_0_sda", .minval = 0, .maxval = 64 },
+  { .name = "i2c_1_pullups", .minval = 0, .maxval = 1 },
+  { .name = "i2c_1_scl", .minval = 0, .maxval = 64 },
+  { .name = "i2c_1_sda", .minval = 0, .maxval = 64 },
   { .name = "wifi_mode", .minval = 0, .maxval = 1 },
 };
 

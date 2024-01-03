@@ -60,8 +60,15 @@ function submitsettings(e) {
 }
 function togset(e, s) {
   const XHR = new XMLHttpRequest();
-  document.getElementById(s).style.display = "block";
+  var dge = document.getElementById(s);
   var oldtxt = e.srcElement.innerHTML;
+  if (dge.style.display === "block") {
+    dge.style.display = "none";
+    dge.innerHTML = "Loading...";
+    e.srcElement.innerHTML = "&#9656;" + oldtxt.substring(1);
+    return;
+  }
+  dge.style.display = "block";
   e.srcElement.innerHTML = "&#9660;" + oldtxt.substring(1);
   XHR.addEventListener("load", (event) => {
     var sr = document.getElementById(s);
@@ -72,7 +79,7 @@ function togset(e, s) {
     var sr = document.getElementById(s);
     sr.innerHTML = "There was an error loading those settings from the server.";
   });
-  XHR.open("GET", "adminmenu.html?" + s);
+  XHR.open("GET", "adminmenu.html?sp=" + s);
   XHR.send();
 }
 </script>
@@ -82,6 +89,8 @@ function togset(e, s) {
 <div id="setwifi" style="display:none;">Loading... (note: this requires Javascript!)</div>
 <h4 onclick="togset(event, 'setwiring');">&#9656; External wiring</h4>
 <div id="setwiring" style="display:none;">Loading... (note: this requires Javascript!)</div>
+<h4 onclick="togset(event, 'setsensors');">&#9656; Sensors</h4>
+<div id="setsensors" style="display:none;">Loading... (note: this requires Javascript!)</div>
 <!-- more settings to come -->
 </body></html>
 

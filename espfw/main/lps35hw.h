@@ -2,9 +2,7 @@
 #ifndef _LPS35HW_H_
 #define _LPS35HW_H_
 
-#include "driver/i2c.h" /* Needed for i2c_port_t */
-
-void lps35hw_init(i2c_port_t port);
+void lps35hw_init(void);
 
 /* Starts a one-shot measurement. Unfortunately, it is not
  * documented how long that will take. However, since you can

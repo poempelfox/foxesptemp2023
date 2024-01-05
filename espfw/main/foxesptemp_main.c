@@ -14,6 +14,7 @@
 #include <nvs_flash.h>
 #include <esp_ota_ops.h>
 #include <math.h>
+#include "displays.h"
 #include "i2c.h"
 #include "lps35hw.h"
 #include "network.h"
@@ -78,6 +79,15 @@ void app_main(void)
     scd41_startmeas();
     sen50_init();
     sen50_startmeas(); /* FIXME Perhaps we don't want this on all the time. */    
+    di_init();
+    struct di_dispbuf * db = di_newdispbuf();
+    for (int i = 0; i < 64; i++) {
+      di_setpixel(db, i, i, 0xFF, 0xFF, 0xFF);
+      di_setpixel(db, i + 64, i, 0xFF, 0xFF, 0xFF);
+      di_setpixel(db, 63 - i, i, 0xFF, 0xFF, 0xFF);
+      di_setpixel(db, 127 - i, i, 0xFF, 0xFF, 0xFF);
+    }
+    di_display(db);
     vTaskDelay(pdMS_TO_TICKS(3000)); /* Mainly to give the RG15 a chance to */
     /* process our initialization sequence, though that doesn't always work. */
 

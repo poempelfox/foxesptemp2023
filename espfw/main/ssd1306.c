@@ -86,7 +86,7 @@ void ssd1306_init(void)
     ssd1306_sendcommand1(0x40);        /* Set display start line to 0 */
     ssd1306_sendcommand2(0x8D, 0x14);  /* Enable internal charge pump at the default 7.5V */
     ssd1306_sendcommand2(0xAD, 0x30);  /* Enable internal Iref at 30uA, resulting in a maximum Iseg=240uA */
-    ssd1306_sendcommand1(0xA0);        /* Segment remap (mirroring all pixels left<->right) */
+    ssd1306_sendcommand1(0xA1);        /* Segment remap (mirroring all pixels left<->right) */
     ssd1306_sendcommand1(0xC8);        /* COM output scan direction: remapped */
     ssd1306_sendcommand2(0xDA, 0x12);  /* alternative COM pin configuration, no COM left/right remap */
     ssd1306_sendcommand2(0x81, 0xFF);  /* Set contrast to '0xff' (range 0x01-0xff, default of chip 0x7f) */
@@ -120,6 +120,7 @@ void ssd1306_display(struct di_dispbuf * db)
         }
         sndbuf[col + 1] = b;
       }
+#if 0
       for (int row = 0; row < 8; row++) {
         uint8_t opb[200];
         for (int col = 0; col < 128; col++) {
@@ -132,6 +133,7 @@ void ssd1306_display(struct di_dispbuf * db)
         opb[128] = 0;
         ESP_LOGI("debug-display", "%s", opb);
       }
+#endif
       i2c_master_write_to_device(ssd1306i2cport, ssd1306addr, sndbuf, 129,
                                  I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
     }

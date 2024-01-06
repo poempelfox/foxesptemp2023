@@ -211,5 +211,5 @@ void di_drawtext(struct di_dispbuf * db,
 
 int di_calctextcenter(struct font * fo, int x1, int x2, uint8_t * txt)
 {
-    return x1 + ((x2 - x1 - (strlen(txt) * (int)fo->width)) / 2);
+    return x1 + ((x2 - x1 - ((int)strlen(txt) * (int)fo->width)) / 2);
 }

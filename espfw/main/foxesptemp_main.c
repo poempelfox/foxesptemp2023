@@ -65,6 +65,7 @@ extern esp_netif_t * mainnetif;
 void dodisplayupdate(void)
 {
     static int curdisppage = -2;
+    static uint8_t invertcounter = 0;
     /* First clear the whole display */
     di_drawrect(db, 0, 0, db->sizex - 1, db->sizey - 1, -1, 0x00, 0x00, 0x00);
     if (curdisppage == -100) {
@@ -147,6 +148,14 @@ void dodisplayupdate(void)
       xpos += strlen(value) * font_terminus38bold.width;
       di_drawtext(db, xpos, 20, &font_terminus16bold, 0xff, 0xff, 0xff, unit);
     }
+    /* We're switching between displaying all pixels as normal and as inverted
+     * to make sure all the pixels in our OLED are "on" for approximately the
+     * same amount of time, as otherwise they would have very different
+     * brightness levels as the display ages. */
+    if (invertcounter >= 0x80) {
+      di_invertall(db);
+    }
+    invertcounter++;
     di_display(db);
     int numcycles = 0;
     do {

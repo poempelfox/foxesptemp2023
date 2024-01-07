@@ -14,6 +14,7 @@
 #include <nvs_flash.h>
 #include <esp_ota_ops.h>
 #include <math.h>
+#include <esp_netif.h>
 #include "displays.h"
 #include "i2c.h"
 #include "lps35hw.h"
@@ -50,6 +51,119 @@ int forcesht4xheater = 0;
  * a lower temperature delta more often. */
 #define HEATERITS 3
 
+struct di_dispbuf * db; /* Our main display buffer (we currently only use one) */
+#define PAGE_TEMP  0
+#define PAGE_HUM   1
+#define PAGE_PRESS 2
+#define PAGE_CO2   3
+#define MAXDISPPAGES 4
+uint8_t ispageenabled[MAXDISPPAGES];
+
+/* we need this to display our IP, it is in network.c */
+extern esp_netif_t * mainnetif;
+
+void dodisplayupdate(void)
+{
+    static int curdisppage = -2;
+    /* First clear the whole display */
+    di_drawrect(db, 0, 0, db->sizex - 1, db->sizey - 1, -1, 0x00, 0x00, 0x00);
+    if (curdisppage == -100) {
+      di_drawtext(db, 0,  0, &font_terminus16bold, 0xff, 0xff, 0xff, "ERROR:");
+      di_drawtext(db, 0, 16, &font_terminus13norm, 0xff, 0xff, 0xff, "No sensors seem to");
+      di_drawtext(db, 0, 32, &font_terminus13norm, 0xff, 0xff, 0xff, "be enabled at all,");
+      di_drawtext(db, 0, 48, &font_terminus13norm, 0xff, 0xff, 0xff, "nothing to show.");
+    } else if (curdisppage == -2) { /* The first startup message */
+      di_drawtext(db, 0,  0, &font_terminus13norm, 0xff, 0xff, 0xff, "Hi! I'm a display!");
+      di_drawtext(db, 0, 16, &font_terminus13norm, 0xff, 0xff, 0xff, "I will display mea-");
+      di_drawtext(db, 0, 32, &font_terminus13norm, 0xff, 0xff, 0xff, "surements as soon");
+      di_drawtext(db, 0, 48, &font_terminus13norm, 0xff, 0xff, 0xff, "as I have some.");
+    } else if (curdisppage == -1) { /* Show Firmware Ver and IP, fill ispageenabled array */
+      di_drawtext(db, 0,  0, &font_terminus13norm, 0xff, 0xff, 0xff, "~~~ FoxESPTemp ~~~");
+      di_drawtext(db, 0, 13, &font_terminus13norm, 0xff, 0xff, 0xff, "Firmware compiled");
+      const esp_app_desc_t * appd = esp_app_get_description();
+      di_drawtext(db, 0, 26, &font_terminus13norm, 0xff, 0xff, 0xff, appd->date);
+      esp_netif_ip_info_t ip_info;
+      if (esp_netif_get_ip_info(mainnetif, &ip_info) == ESP_OK) {
+        uint8_t ippfb[20];
+        sprintf(ippfb, IPSTR, IP2STR(&ip_info.ip));
+        di_drawtext(db, 0, 39, &font_terminus13norm, 0xff, 0xff, 0xff, ippfb);
+      } else {
+        di_drawtext(db, 0, 39, &font_terminus13norm, 0xff, 0xff, 0xff, "No IPv4 address");
+      }
+      di_drawtext(db, 0, 52, &font_terminus13norm, 0xff, 0xff, 0xff, "ABCabc.,_!0123456789");
+      /* Fill the ispageenabled array depending on enabled sensors */
+      if (settings.sht4x_i2cport > 0) {
+        ispageenabled[PAGE_TEMP] = 1;
+        ispageenabled[PAGE_HUM] = 1;
+      }
+      if (settings.lps35hw_i2cport > 0) { ispageenabled[PAGE_PRESS] = 1; }
+      if (settings.scd41_i2cport > 0) { ispageenabled[PAGE_CO2] = 1; }
+    } else { /* curdisppage >= 0 - show values. */
+      uint8_t label[30]; uint8_t value[20]; uint8_t unit[20];
+      label[0] = 0; value[0] = 0; unit[0] = 0;
+      if (curdisppage == 0) { /* Show temp */
+        strcpy(label, "Temperatur"); // we might want to translate this.
+        if (isnan(evs[activeevs].temp)) {
+          strcpy(value, "-.--");
+        } else {
+          sprintf(value, "%.2f", evs[activeevs].temp);
+        }
+        sprintf(unit, "%cC", 176);
+      } else if (curdisppage == 1) { /* Show humidity */
+        strcpy(label, "Luftfeuchtigkeit");
+        if (isnan(evs[activeevs].hum)) {
+          strcpy(value, "-.--");
+        } else {
+          sprintf(value, "%.2f", evs[activeevs].hum);
+        }
+        strcpy(unit, "%");
+      } else if (curdisppage == 2) { /* Show pressure */
+        strcpy(label, "Luftdruck");
+        if (isnan(evs[activeevs].press)) {
+          strcpy(value, "---.--");
+        } else {
+          sprintf(value, "%.2f", evs[activeevs].press);
+        }
+        strcpy(unit, "hPa");
+      } else if (curdisppage == 3) { /* Show CO2 */
+        sprintf(label, "CO%c", 178);
+        if (evs[activeevs].co2 == 0xffff) { /* Invalid */
+          strcpy(value, "----");
+        } else {
+          sprintf(value, "%u", evs[activeevs].co2);
+        }
+        strcpy(unit, "ppm");
+      }
+      /* Center the label */
+      int xpos = di_calctextcenter(&font_terminus16bold, 0, db->sizex - 1, label);
+      di_drawtext(db, xpos, 0, &font_terminus16bold, 0xff, 0xff, 0xff, label);
+      /* With the values + unit, it's a bit more complicated, because they
+       * are using different font sizes. */
+      int vwi = strlen(value) * font_terminus38bold.width
+              + strlen(unit) * font_terminus16bold.width;
+      xpos = ((int)db->sizex - vwi) / 2;
+      if (xpos < 0) { xpos = 0; }
+      di_drawtext(db, xpos, 20, &font_terminus38bold, 0xff, 0xff, 0xff, value);
+      xpos += strlen(value) * font_terminus38bold.width;
+      di_drawtext(db, xpos, 20, &font_terminus16bold, 0xff, 0xff, 0xff, unit);
+    }
+    di_display(db);
+    int numcycles = 0;
+    do {
+      if (curdisppage > -100) { // <= -100 are error pages that should display permanently.
+        curdisppage++;
+      }
+      if (curdisppage < 0) break; // so we don't evaluate the while condition.
+      if (curdisppage >= MAXDISPPAGES) {
+        curdisppage = 0;
+        numcycles++;
+        if (numcycles > 1) { // Ouch, we found nothing at all to display.
+          curdisppage = -100; // Switch to error message page.
+          break;
+        }
+      }
+    } while (ispageenabled[curdisppage] == 0);
+}
 
 void app_main(void)
 {
@@ -78,16 +192,10 @@ void app_main(void)
     scd41_init();
     scd41_startmeas();
     sen50_init();
-    sen50_startmeas(); /* FIXME Perhaps we don't want this on all the time. */    
-    di_init();
-    struct di_dispbuf * db = di_newdispbuf();
-    for (int i = 0; i < 64; i++) {
-      di_setpixel(db, i, i, 0xFF, 0xFF, 0xFF);
-      di_setpixel(db, i + 64, i, 0xFF, 0xFF, 0xFF);
-      di_setpixel(db, 63 - i, i, 0xFF, 0xFF, 0xFF);
-      di_setpixel(db, 127 - i, i, 0xFF, 0xFF, 0xFF);
-    }
-    di_display(db);
+    sen50_startmeas(); /* FIXME Perhaps we don't want this on all the time. */
+    di_init();  /* Initialize display */
+    db = di_newdispbuf();
+    dodisplayupdate();
     vTaskDelay(pdMS_TO_TICKS(3000)); /* Mainly to give the RG15 a chance to */
     /* process our initialization sequence, though that doesn't always work. */
 
@@ -96,6 +204,7 @@ void app_main(void)
     time_t lastmeasts = time(NULL);
     time_t lastsht4xheat = lastmeasts;
     time_t lastsuccsubmit = lastmeasts;
+    time_t lastdispupd = lastmeasts;
 
     /* We do NTP to provide useful timestamps in our webserver output. */
     esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
@@ -138,6 +247,9 @@ void app_main(void)
          * case, lets try to work around it: */
         ESP_LOGE(TAG, "Lets do the time warp again: Time jumped backwards - trying to cope.");
         lastmeasts = time(NULL); // We should return to normal measurements in 60s
+        lastsht4xheat = lastmeasts;   // also reset all the other timestamps.
+        lastsuccsubmit = lastmeasts;
+        lastdispupd = lastmeasts;
       }
       time_t curts = time(NULL);
       if ((curts - lastmeasts) >= 60) {
@@ -233,7 +345,7 @@ void app_main(void)
           evs[naevs].co2 = co2data.co2;
           QUEUETOSUBMIT(WPDSID_CO2, co2data.co2);
         } else {
-          evs[naevs].co2 = 0xffff; /* no such thing as a NaN here :-/ */
+          evs[naevs].co2 = 0xffff; /* no such thing as a NAN here :-/ */
         }
 
         if (pmdata.valid > 0) {
@@ -282,9 +394,14 @@ void app_main(void)
           ESP_LOGE(TAG, "No successful submit in %lld seconds - about to reboot.", (time(NULL) - lastsuccsubmit));
           esp_restart();
         }
-      } else { /* Woke up too early, go back to sleep */
+      } else if ((curts - lastdispupd) >= 10) {
+        lastdispupd = curts;
+        /* Update display */
+        dodisplayupdate();
+      } else { /* Nothing to do, go back to sleep for a second. */
+        /* We sadly cannot do meaningful powersaving here if we want the
+         * webinterface to be reachable. */
         sleep_ms(1000);
       }
     }
 }
-

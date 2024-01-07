@@ -157,6 +157,16 @@ void di_drawrect(struct di_dispbuf * db, int x1, int y1, int x2, int y2,
     }
 }
 
+void di_invertall(struct di_dispbuf * db)
+{
+    int numb = db->sizex * db->sizey * db->bpp;
+    uint8_t * p = db->cont;
+    for (int i = 0; i < numb; i++) {
+      *p ^= 0xff;
+      p++;
+    }
+}
+
 void di_drawchar(struct di_dispbuf * db,
                  int x, int y, struct font * fo,
                  uint8_t r, uint8_t g, uint8_t b,

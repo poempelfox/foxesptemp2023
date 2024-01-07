@@ -50,6 +50,9 @@ uint8_t di_getpixelbw(struct di_dispbuf * db, int x, int y);
 void di_drawrect(struct di_dispbuf * db, int x1, int y1, int x2, int y2,
                  int borderwidth, uint8_t r, uint8_t g, uint8_t b);
 
+/* invert all pixels. */
+void di_invertall(struct di_dispbuf * db);
+
 /* Embedded fonts. */
 extern struct font font_terminus13norm;
 extern struct font font_terminus16bold;

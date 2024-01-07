@@ -2,10 +2,14 @@
 
 # This scripts generates bitmap fonts for use with FoxESPTemp.
 # This will work for a few font sizes that you can select on the
-# commandline (until the width exceeds 16, at which point the
+# commandline (until the width exceeds 24 pixels, at which point the
 # shell magic will break completely).
 # This is a pretty messy hack, and I'm very surprised it works as
 # well as it does.
+# The main fight here is with imagemagick: It only accepts 'pointsize'
+# as the size unit for fonts - and there is really no telling what
+# real size and scaling a certain pointsize will create, as that
+# seems to be completely different from any other software I tried.
 
 FN="/tmp/fontconv.xbm"
 
@@ -52,6 +56,11 @@ elif [ "$1" == "34" ] ; then
   FONTWIDTH=17
   POINTSIZE=32
   BYTESPERCHAR=3
+elif [ "$1" == "38" ] ; then
+  FONTHEIGHT=38
+  FONTWIDTH=19
+  POINTSIZE=36
+  BYTESPERCHAR=3
 else
   echo "Don't know how to handle font height $1."
   echo "Syntax: $0 fontheight [bold]"
@@ -63,7 +72,8 @@ else
   echo "  28 (28 high / 14 wide)"
   echo "  30 (30 high / 15 wide)"
   echo "  32 (32 high / 16 wide)"
-  echo "  34 (34 high / 17 wide - this does not actually work.)"
+  echo "  34 (34 high / 17 wide)"
+  echo "  38 (38 high / 19 wide)"
   echo "Valid values for bold are: 0 or 1, defaults to 0."
   exit 1
 fi
@@ -118,10 +128,17 @@ for c in "!" "\"" "#" "\$" "%" "&" "'" "(" ")" "*" "+" "," "-" "." "/" \
          "[" "\\\\" "]" "^" "_" "\`" \
          a b c d e f g h i j k l m n o p q r s t u v w x y z \
          "{" "|" "}" "~" \
-         $'\xc2\xb0'
+         $'\xc2\xb0' $'\xc2\xb2'
 do
   let "offset=offset+1"
-  ord=`LC_CTYPE=C printf '%d' "'$c"`
+  if [ "$c" == $'\xc2\xb0' ] ; then
+    # This will not return a valid code with the default case
+    ord="176"
+  elif [ "$c" == $'\xc2\xb2' ] ; then
+    ord="178"
+  else
+    ord=`LC_CTYPE=C printf '%d' "'$c"`
+  fi
   coffs[$ord]=$offset
   echo "    /* Next character: $c (ord $ord) at offset $offset */"
   convert -background white -fill black \
@@ -168,7 +185,7 @@ echo "    .height = ${FONTHEIGHT}, /* Height */"
 echo "    .offsets = { /* Offsets to individual characters */"
 for c in `seq 0 255`
 do
-  echo "        ${coffs[$c]},"
+  printf "        %3s, // %3s\n" "${coffs[$c]}" "$c"
 done
 echo "    }"
 echo "};"

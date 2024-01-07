@@ -53,7 +53,7 @@ void di_drawrect(struct di_dispbuf * db, int x1, int y1, int x2, int y2,
 /* Embedded fonts. */
 extern struct font font_terminus13norm;
 extern struct font font_terminus16bold;
-extern struct font font_terminus34bold;
+extern struct font font_terminus38bold;
 
 /* Text functions */
 void di_drawchar(struct di_dispbuf * db,

@@ -4,6 +4,17 @@
 #include <driver/i2c.h>
 #include "settings.h"
 
+static uint32_t settingtoi2cclock(uint8_t s)
+{
+    switch (s) {
+    case 1: return   25000U; // 25 kHz - there should be no need to use this.
+    case 2: return  200000U; // 200 kHz - half the 'fast mode' of 400kHz
+    case 3: return  400000U; // 400 kHz - what NXP calls 'fast mode'
+    case 4: return 1000000U; // 1000 kHz - the maximum the ESP32 can do.
+    };
+    return 100000U; /* We use a medium-speed default. */
+}
+
 void i2c_port_init(void)
 {
   for (int i2cp = 0; i2cp <= 1; i2cp++) {
@@ -18,7 +29,7 @@ void i2c_port_init(void)
         .scl_pullup_en = ((settings.i2c_n_pullups[i2cp])
                           ? GPIO_PULLUP_ENABLE
                           : GPIO_PULLUP_DISABLE),
-        .master.clk_speed = 100000, /* There is really no need to hurry */
+        .master.clk_speed = settingtoi2cclock(settings.i2c_n_speed[i2cp]),
       };
       i2c_param_config(((i2cp == 0) ? I2C_NUM_0 : I2C_NUM_1), &i2cpnconf);
       if (i2c_driver_install(((i2cp == 0) ? I2C_NUM_0 : I2C_NUM_1),

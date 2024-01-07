@@ -59,12 +59,14 @@ void settings_load(void)
   loadstr(nvshandle, "wpdtoken", settings.wpdtoken, sizeof(settings.wpdtoken));
   uint8_t tmp1[20];
   for (int i2cp = 0; i2cp <= 1; i2cp++) {
+    sprintf(tmp1, "i2c_%d_pullups", i2cp);
+    loadu8(nvshandle, tmp1, &(settings.i2c_n_pullups[i2cp]));
     sprintf(tmp1, "i2c_%d_scl", i2cp);
     loadu8(nvshandle, tmp1, &(settings.i2c_n_scl[i2cp]));
     sprintf(tmp1, "i2c_%d_sda", i2cp);
     loadu8(nvshandle, tmp1, &(settings.i2c_n_sda[i2cp]));
-    sprintf(tmp1, "i2c_%d_pullups", i2cp);
-    loadu8(nvshandle, tmp1, &(settings.i2c_n_pullups[i2cp]));
+    sprintf(tmp1, "i2c_%d_speed", i2cp);
+    loadu8(nvshandle, tmp1, &(settings.i2c_n_speed[i2cp]));
   }
   loadu8(nvshandle, "lps35hw_i2cport", &(settings.lps35hw_i2cport));
   loadu8(nvshandle, "lps35hw_addr", &(settings.lps35hw_addr));

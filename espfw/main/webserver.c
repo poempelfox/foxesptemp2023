@@ -447,6 +447,15 @@ esp_err_t get_adminmenu_handler(httpd_req_t * req) {
       pfp += sprintf(pfp, "<select id=\"i2c_%d_pullups\" name=\"i2c_%d_pullups\">", i2cport, i2cport);
       pfp += sprintf(pfp, "<option value=\"0\"%s>Disable pullups</option>", ((curs == 0) ? " selected" : ""));
       pfp += sprintf(pfp, "<option value=\"1\"%s>Enable pullups</option>", ((curs == 1) ? " selected" : ""));
+      pfp += sprintf(pfp, "%s", "</select><br><label for=\"i2c_%d_speed\">Speed (Hz):</label>");
+      sprintf(tmp1, "i2c_%d_speed", i2cport);
+      curs = getu8setting(nvshandle, tmp1);
+      pfp += sprintf(pfp, "<select id=\"i2c_%d_speed\" name=\"i2c_%d_speed\">", i2cport, i2cport);
+      pfp += sprintf(pfp, "<option value=\"0\"%s>100k (default)</option>", ((curs == 0) ? " selected" : ""));
+      pfp += sprintf(pfp, "<option value=\"1\"%s>25k</option>", ((curs == 1) ? " selected" : ""));
+      pfp += sprintf(pfp, "<option value=\"2\"%s>200k</option>", ((curs == 2) ? " selected" : ""));
+      pfp += sprintf(pfp, "<option value=\"3\"%s>400k</option>", ((curs == 3) ? " selected" : ""));
+      pfp += sprintf(pfp, "<option value=\"4\"%s>1000k</option>", ((curs == 4) ? " selected" : ""));
       pfp += sprintf(pfp, "%s", "</select></td></tr>");
     }
     /* FIXME serial pins */
@@ -705,9 +714,11 @@ static const struct u8set_s u8sets[] = {
   { .name = "i2c_0_pullups", .minval = 0, .maxval = 1 },
   { .name = "i2c_0_scl", .minval = 0, .maxval = 64 },
   { .name = "i2c_0_sda", .minval = 0, .maxval = 64 },
+  { .name = "i2c_0_speed", .minval = 0, .maxval = 4 },
   { .name = "i2c_1_pullups", .minval = 0, .maxval = 1 },
   { .name = "i2c_1_scl", .minval = 0, .maxval = 64 },
   { .name = "i2c_1_sda", .minval = 0, .maxval = 64 },
+  { .name = "i2c_1_speed", .minval = 0, .maxval = 4 },
   { .name = "wifi_mode", .minval = 0, .maxval = 1 },
 };
 

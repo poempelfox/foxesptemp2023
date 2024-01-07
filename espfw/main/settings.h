@@ -24,6 +24,7 @@ struct globalsettings {
 	uint8_t i2c_n_scl[2];
 	uint8_t i2c_n_sda[2];
 	uint8_t i2c_n_pullups[2]; // pullups enabled in the GPIO
+	uint8_t i2c_n_speed[2]; // Speed
 	/* On which I2C bus are the respective sensors? Again, this
 	 * is 0 to disable the sensor, or busnumber+1 otherwise. */
 	uint8_t lps35hw_i2cport;

@@ -79,7 +79,14 @@ access admin functions.
 /* Helper functions */
 
 /* Unescapes a x-www-form-urlencoded string.
- * Modifies the string inplace! */
+ * Modifies the string inplace!
+ * This is a mess that was quickly cobbled together. It
+ * purposely excludes certain characters like " and ',
+ * because we know all too well that we will print these
+ * into html tags unescaped, and that would break with
+ * these chars. We should at some time fix this by
+ * using proper unescape AND escape functions, but for
+ * now it's good enough for a tiny microcontroller. */
 void unescapeuestring(uint8_t * s) {
   uint8_t * rp = s;
   uint8_t * wp = s;
@@ -88,12 +95,54 @@ void unescapeuestring(uint8_t * s) {
       *wp = ' '; wp++; rp++;
     } else if (strncmp(rp, "&amp;", 5) == 0) {
       *wp = '&'; rp += 5; wp += 1;
+    } else if (strncmp(rp, "%20", 3) == 0) {
+      *wp = ' '; rp += 3; wp += 1;
+    } else if (strncmp(rp, "%21", 3) == 0) {
+      *wp = '!'; rp += 3; wp += 1;
+    } else if (strncmp(rp, "%23", 3) == 0) {
+      *wp = '#'; rp += 3; wp += 1;
+    } else if (strncmp(rp, "%24", 3) == 0) {
+      *wp = '$'; rp += 3; wp += 1;
+    } else if (strncmp(rp, "%25", 3) == 0) {
+      *wp = '%'; rp += 3; wp += 1;
     } else if (strncmp(rp, "%26", 3) == 0) {
       *wp = '&'; rp += 3; wp += 1;
-    } else if (strncmp(rp, "%3A", 3) == 0) {
-      *wp = ':'; rp += 3; wp += 1;
+    } else if (strncmp(rp, "%28", 3) == 0) {
+      *wp = '('; rp += 3; wp += 1;
+    } else if (strncmp(rp, "%29", 3) == 0) {
+      *wp = ')'; rp += 3; wp += 1;
+    } else if (strncmp(rp, "%2A", 3) == 0) {
+      *wp = '*'; rp += 3; wp += 1;
+    } else if (strncmp(rp, "%2B", 3) == 0) {
+      *wp = '+'; rp += 3; wp += 1;
+    } else if (strncmp(rp, "%2C", 3) == 0) {
+      *wp = ','; rp += 3; wp += 1;
+    } else if (strncmp(rp, "%2D", 3) == 0) {
+      *wp = '-'; rp += 3; wp += 1;
+    } else if (strncmp(rp, "%2E", 3) == 0) {
+      *wp = '.'; rp += 3; wp += 1;
     } else if (strncmp(rp, "%2F", 3) == 0) {
       *wp = '/'; rp += 3; wp += 1;
+    } else if (strncmp(rp, "%3A", 3) == 0) {
+      *wp = ':'; rp += 3; wp += 1;
+    } else if (strncmp(rp, "%3B", 3) == 0) {
+      *wp = ';'; rp += 3; wp += 1;
+    } else if (strncmp(rp, "%3D", 3) == 0) {
+      *wp = '='; rp += 3; wp += 1;
+    } else if (strncmp(rp, "%3F", 3) == 0) {
+      *wp = '?'; rp += 3; wp += 1;
+    } else if (strncmp(rp, "%40", 3) == 0) {
+      *wp = '@'; rp += 3; wp += 1;
+    } else if (strncmp(rp, "%5B", 3) == 0) {
+      *wp = '['; rp += 3; wp += 1;
+    } else if (strncmp(rp, "%5D", 3) == 0) {
+      *wp = ']'; rp += 3; wp += 1;
+    } else if (strncmp(rp, "%5E", 3) == 0) {
+      *wp = '^'; rp += 3; wp += 1;
+    } else if (strncmp(rp, "%5F", 3) == 0) {
+      *wp = '_'; rp += 3; wp += 1;
+    } else if (strncmp(rp, "%7E", 3) == 0) {
+      *wp = '~'; rp += 3; wp += 1;
     } else {
       *wp = *rp; wp++; rp++;
     }

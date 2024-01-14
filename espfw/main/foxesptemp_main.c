@@ -33,7 +33,11 @@ static const char *TAG = "foxesptemp";
 
 /* Global / Exported variables, used to provide the webserver.
  * struct ev is defined in webserver.h for practical reasons. */
-struct ev evs[2];
+struct ev evs[2] = { [0 ... 1] = {
+                     .hum = NAN, .press = NAN, .raing = NAN, .temp = NAN,
+                     .pm010 = NAN, .pm025 = NAN, .pm040 = NAN, .pm100 = NAN,
+                     .co2 = 0xffff
+                   } };
 int activeevs = 0;
 /* Has the firmware been marked as "good" yet, or is ist still pending
  * verification? */
@@ -176,8 +180,6 @@ void dodisplayupdate(void)
 
 void app_main(void)
 {
-    memset(evs, 0, sizeof(evs));
-
     /* This is in all OTA-Update examples, so I consider it mandatory. */
     esp_err_t err = nvs_flash_init();
     if ((err == ESP_ERR_NVS_NO_FREE_PAGES) || (err == ESP_ERR_NVS_NEW_VERSION_FOUND)) {

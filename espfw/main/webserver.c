@@ -569,6 +569,18 @@ esp_err_t get_adminmenu_handler(httpd_req_t * req) {
     /* FIXME serial */
     strcat(pfp, "<tr><th colspan=\"2\"><input type=\"submit\" name=\"su\" value=\"Set\"></th></tr>");
     strcat(pfp, "</table></form><br>");
+  } else if (strcmp(subpage, "setmisc") == 0) { /* Misc settings */
+    strcpy(myresponse, "<form action=\"savesettings\" method=\"POST\" onsubmit=\"submitsettings(event)\">");
+    strcat(myresponse, "<table>");
+    strcat(myresponse, "<tr><th>Change Admin Password</th><td>");
+    strcat(myresponse, "<label for=\"curadminpw\">Current Password:</label>");
+    strcat(myresponse, "<input type=\"text\" name=\"curadminpw\" id=\"curadminpw\" value=\"\"><br>");
+    strcat(myresponse, "<label for=\"adminpw\">New Password:</label>");
+    strcat(myresponse, "<input type=\"text\" name=\"adminpw\" id=\"adminpw\" value=\"\"><br>");
+    strcat(myresponse, "<label for=\"repadminpw\">Repeat New Password:</label>");
+    strcat(myresponse, "<input type=\"text\" name=\"repadminpw\" id=\"repadminpw\" value=\"\"></td></tr>");
+    strcat(myresponse, "<tr><th colspan=\"2\"><input type=\"submit\" name=\"su\" value=\"Set\"></th></tr>");
+    strcat(myresponse, "</table></form><br>");
   } else {
     strcpy(myresponse, "??? Unknown subpage requested.");
   }
@@ -755,7 +767,7 @@ struct u8set_s {
 };
 
 static const struct strset_s strsets[] = {
-  { .name = "adminpw", .minlen = 1, .maxlen = 24 },
+  { .name = "adminpw", .minlen = 0, .maxlen = 24 },
   { .name = "wifi_ap_ssid", .minlen = 2, .maxlen = 32 },
   { .name = "wifi_ap_pw", .minlen = 0, .maxlen = 63 },
   { .name = "wifi_cl_ssid", .minlen = 2, .maxlen = 32 },
@@ -832,7 +844,38 @@ esp_err_t post_savesettings(httpd_req_t * req) {
       httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
       return ESP_OK;
     }
-    /* Length seems OK. Has the value changed? */
+    /* Length seems OK. Those were the common sanity checks, now special cases: */
+    if (strcmp(strsets[i].name, "adminpw") == 0) {
+      if (strlen(tmp1) == 0) { /* Field empty, user does not want to change the password. */
+        continue;
+      }
+      /* Changing the adminpw requires entering the old password, and the new
+       * password twice. */
+      if (httpd_query_key_value(postcontent, "curadminpw", tmp2, sizeof(tmp2)) != ESP_OK) {
+        strcpy(myresponse, "ERROR: cannot change admin password - current password entered incorrectly.");
+        httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+      }
+      unescapeuestring(tmp2);
+      if (strcmp(tmp2, settings.adminpw) != 0) {
+        strcpy(myresponse, "ERROR: cannot change admin password - current password entered incorrectly.");
+        httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+      }
+      /* OK, so current password is entered correctly, are both fields for the new PW identical? */
+      if (httpd_query_key_value(postcontent, "repadminpw", tmp2, sizeof(tmp2)) != ESP_OK) {
+        strcpy(myresponse, "ERROR: cannot change admin password - new password entered incorrectly.");
+        httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+      }
+      unescapeuestring(tmp2);
+      if (strcmp(tmp2, tmp1) != 0) {
+        strcpy(myresponse, "ERROR: cannot change admin password - fields for new password are not identical.");
+        httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+      }
+    }
+    /* Has the value changed? */
     size_t len = sizeof(tmp2);
     e = nvs_get_str(nvshandle, strsets[i].name, tmp2, &len);
     if ((e != ESP_OK) && (e != ESP_ERR_NVS_NOT_FOUND)) {

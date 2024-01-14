@@ -240,7 +240,12 @@ esp_err_t get_startpage_handler(httpd_req_t * req) {
   }
   pfp += sprintf(pfp, "<tr><th>Rain (mm/min)</th><td id=\"raing\">%.2f</td></tr>", evs[e].raing);
   if (settings.scd41_i2cport > 0) { // SCD41 is enabled
-    pfp += sprintf(pfp, "<tr><th>CO2 (ppm)</th><td id=\"co2\">%u</td></tr>", evs[e].co2);
+    if (evs[e].co2 == 0xffff) { // Invalid - note that we cannot simply rely on
+      // NAN being printed as NaN as with the other values because it's not a float.
+      pfp += sprintf(pfp, "%s", "<tr><th>CO2 (ppm)</th><td id=\"co2\">nan</td></tr>");
+    } else {
+      pfp += sprintf(pfp, "<tr><th>CO2 (ppm)</th><td id=\"co2\">%u</td></tr>", evs[e].co2);
+    }
   }
   pfp += sprintf(pfp, "</table>");
   strcat(myresponse, startp_p2);
@@ -282,7 +287,11 @@ esp_err_t get_json_handler(httpd_req_t * req) {
   }
   pfp += sprintf(pfp, "\"raing\":\"%.2f\",", evs[e].raing);
   if (settings.scd41_i2cport > 0) { // SCD41 is enabled
-    pfp += sprintf(pfp, "\"co2\":\"%u\",", evs[e].co2);
+    if (evs[e].co2 == 0xffff) {
+      pfp += sprintf(pfp, "%s", "\"co2\":\"nan\",");
+    } else {
+      pfp += sprintf(pfp, "\"co2\":\"%u\",", evs[e].co2);
+    }
   }
   pfp += sprintf(pfp, "\"ts\":\"%lld\"}", evs[e].lastupd);
   /* The following line is the default und thus redundant. */

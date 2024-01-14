@@ -61,7 +61,7 @@ struct di_dispbuf * db; /* Our main display buffer (we currently only use one) *
 #define PAGE_PRESS 2
 #define PAGE_CO2   3
 #define MAXDISPPAGES 4
-uint8_t ispageenabled[MAXDISPPAGES];
+uint32_t ispageenabled = 0;
 
 /* we need this to display our IP, it is in network.c */
 extern esp_netif_t * mainnetif;
@@ -98,11 +98,11 @@ void dodisplayupdate(void)
       di_drawtext(db, 0, 52, &font_terminus13norm, 0xff, 0xff, 0xff, "ABCabc.,_!0123456789");
       /* Fill the ispageenabled array depending on enabled sensors */
       if (settings.sht4x_i2cport > 0) {
-        ispageenabled[PAGE_TEMP] = 1;
-        ispageenabled[PAGE_HUM] = 1;
+        ispageenabled |= 1 << PAGE_TEMP;
+        ispageenabled |= 1 << PAGE_HUM;
       }
-      if (settings.lps35hw_i2cport > 0) { ispageenabled[PAGE_PRESS] = 1; }
-      if (settings.scd41_i2cport > 0) { ispageenabled[PAGE_CO2] = 1; }
+      if (settings.lps35hw_i2cport > 0) { ispageenabled |= 1 << PAGE_PRESS; }
+      if (settings.scd41_i2cport > 0) { ispageenabled |= 1 << PAGE_CO2; }
     } else { /* curdisppage >= 0 - show values. */
       uint8_t label[30]; uint8_t value[20]; uint8_t unit[20];
       label[0] = 0; value[0] = 0; unit[0] = 0;
@@ -175,7 +175,7 @@ void dodisplayupdate(void)
           break;
         }
       }
-    } while (ispageenabled[curdisppage] == 0);
+    } while ((ispageenabled & (1 << curdisppage)) == 0);
 }
 
 void app_main(void)

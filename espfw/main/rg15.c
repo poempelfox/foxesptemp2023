@@ -4,11 +4,22 @@
 #include "driver/uart.h"
 #include "esp_log.h"
 #include "rg15.h"
+#include "settings.h"
 
 static QueueHandle_t rainsens_comm_handle;
 
 void rg15_init(void)
 {
+    if (settings.rg15_serport > 0) {
+      /* A serial port is configured, but is that port disabled? */
+      if ((settings.ser_1_rx == 0)
+       || (settings.ser_1_tx == 0)) {
+        /* It is. Force disabled-setting for us too. */
+        settings.rg15_serport = 0;
+        ESP_LOGW("rg15.c", "WARNING: RG15 automatically disabled because it is connected to a disabled serial port.");
+      }
+    }
+    if (settings.rg15_serport == 0) return;
     uart_config_t rainsens_serial_config = {
       .baud_rate = 9600,
       .data_bits = UART_DATA_8_BITS,
@@ -17,11 +28,11 @@ void rg15_init(void)
       .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
       .source_clk = UART_SCLK_DEFAULT,
     };
-    // Configure UART parameters - we're using UART1.
+    // Configure UART parameters - we're using UART1 because that is all we have really.
     ESP_ERROR_CHECK(uart_driver_install(UART_NUM_1, 200, 200, 5, &rainsens_comm_handle, 0));
     ESP_ERROR_CHECK(uart_param_config(UART_NUM_1, &rainsens_serial_config));
     // TX on GPIO25, RX on GPIO26
-    ESP_ERROR_CHECK(uart_set_pin(UART_NUM_1, 25, 26, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
+    ESP_ERROR_CHECK(uart_set_pin(UART_NUM_1, settings.ser_1_tx, settings.ser_1_rx, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
     /* Tell the rainsensor we want polling mode, a.k.a. "shut up until you're spoken to".
      * Also, use high res mode and metrical output, disable 
      * tipping-bucket-output, and reset counters. */
@@ -30,6 +41,7 @@ void rg15_init(void)
 
 void rg15_requestread(void)
 {
+    if (settings.rg15_serport == 0) return;
     /* Make sure there are no more other commands queued first. */
     uart_wait_tx_done(UART_NUM_1, 200);
     /* Now throw away everything in the receive buffer, it's
@@ -46,6 +58,7 @@ float rg15_readraincount(void)
     char rcvdata[128];
     int length = 0;
     float res = -99999.9;
+    if (settings.rg15_serport == 0) return -99999.9;
     if (uart_get_buffered_data_len(UART_NUM_1, (size_t*)&length) != ESP_OK) {
       ESP_LOGI("rg15.c", "Error talking to the serial port.");
       return -99999.9;

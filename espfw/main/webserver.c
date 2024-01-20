@@ -399,6 +399,23 @@ static void getstrsetting(nvs_handle_t nvshandle, const char * key, char * out, 
   }
 }
 
+/* Helper to print the options for all valid GPIO pins inside a HTML select,
+ * with one selected.
+ * par1: pointer to where to put it (string)
+ * par2: which GPIO is selected - 0 for 'disabled', 1 for GPIO0, 2 for GPIO1,
+ *       3 for GPIO2, (n+1) for GPIO(n).
+ * returns pointer to the end of the string after printing. */
+uint8_t * printhtmlgpiosel(uint8_t * staptr, uint8_t selg)
+{
+  staptr += sprintf(staptr, "<option value=\"0\"%s>disabled</option>", ((selg == 0) ? " selected" : ""));
+  for (int i = 0; i < 63; i++) {
+    if (GPIO_IS_VALID_GPIO(i)) {
+      staptr += sprintf(staptr, "<option value=\"%d\"%s>%d</option>", (i + 1), ((selg == (i + 1)) ? " selected" : ""), i);
+    }
+  }
+  return staptr;
+}
+
 esp_err_t get_adminmenu_handler(httpd_req_t * req) {
   uint8_t * myresponse; /* This is going to be too large to just put it on the stack. */
   uint8_t * pfp;
@@ -483,22 +500,12 @@ esp_err_t get_adminmenu_handler(httpd_req_t * req) {
       pfp += sprintf(pfp, "<select name=\"i2c_%d_scl\" id=\"i2c_%d_scl\">", i2cport, i2cport);
       sprintf(tmp1, "i2c_%d_scl", i2cport);
       curs = getu8setting(nvshandle, tmp1);
-      pfp += sprintf(pfp, "<option value=\"0\"%s>disabled</option>", ((curs == 0) ? " selected" : ""));
-      for (int i = 0; i < 63; i++) {
-        if (GPIO_IS_VALID_GPIO(i)) {
-          pfp += sprintf(pfp, "<option value=\"%d\"%s>%d</option>", (i+1), ((curs == (i +1)) ? " selected" : ""), i);
-        }
-      }
+      pfp = printhtmlgpiosel(pfp, curs);
       pfp += sprintf(pfp, "</select> <label for=\"i2c_%d_scl\">SDA:</label>", i2cport);
       pfp += sprintf(pfp, "<select name=\"i2c_%d_sda\" id=\"i2c_%d_sda\">", i2cport, i2cport);
       sprintf(tmp1, "i2c_%d_sda", i2cport);
       curs = getu8setting(nvshandle, tmp1);
-      pfp += sprintf(pfp, "<option value=\"0\"%s>disabled</option>", ((curs == 0) ? " selected" : ""));
-      for (int i = 0; i < 63; i++) {
-        if (GPIO_IS_VALID_GPIO(i)) {
-          pfp += sprintf(pfp, "<option value=\"%d\"%s>%d</option>", (i+1), ((curs == (i +1)) ? " selected" : ""), i);
-        }
-      }
+      pfp = printhtmlgpiosel(pfp, curs);
       pfp += sprintf(pfp, "%s", "</select><br>");
       sprintf(tmp1, "i2c_%d_pullups", i2cport);
       curs = getu8setting(nvshandle, tmp1);
@@ -516,13 +523,22 @@ esp_err_t get_adminmenu_handler(httpd_req_t * req) {
       pfp += sprintf(pfp, "<option value=\"4\"%s>1000k</option>", ((curs == 4) ? " selected" : ""));
       pfp += sprintf(pfp, "%s", "</select></td></tr>");
     }
-    /* FIXME serial pins */
+    pfp += sprintf(pfp, "%s", "<tr><th>Serial 1 GPIOs</th><td><label for=\"ser_1_rx\">RX:</label>");
+    pfp += sprintf(pfp, "%s", "<select name=\"ser_1_rx\" id=\"ser_1_rx\">");
+    curs = getu8setting(nvshandle, "ser_1_rx");
+    pfp = printhtmlgpiosel(pfp, curs);
+    pfp += sprintf(pfp, "%s", "</select> <label for=\"ser_1_tx\">TX:</label>");
+    pfp += sprintf(pfp, "%s", "<select name=\"ser_1_tx\" id=\"ser_1_tx\">");
+    curs = getu8setting(nvshandle, "ser_1_tx");
+    pfp = printhtmlgpiosel(pfp, curs);
+    strcat(pfp, "</select></td></tr>");
     strcat(pfp, "<tr><th colspan=\"2\"><input type=\"submit\" name=\"su\" value=\"Set\"></th></tr>");
     strcat(pfp, "</table></form><br>");
   } else if (strcmp(subpage, "setsensors") == 0) { /* Sensor settings */
     strcpy(myresponse, "<form action=\"savesettings\" method=\"POST\" onsubmit=\"submitsettings(event)\">");
     strcat(myresponse, "<table>");
     pfp = myresponse + strlen(myresponse);
+    /* I2C sensors */
     curs = getu8setting(nvshandle, "scd41_i2cport");
     pfp += sprintf(pfp, "%s", "<tr><th>SCD41</th><td>");
     pfp += sprintf(pfp, "%s", "<label for=\"scd41_i2cport\">I2C Port</label>:");
@@ -566,7 +582,14 @@ esp_err_t get_adminmenu_handler(httpd_req_t * req) {
     pfp += sprintf(pfp, "<option value=\"0\"%s>0x5c</option>", ((curs == 0) ? " selected" : ""));
     pfp += sprintf(pfp, "<option value=\"1\"%s>0x5d</option>", ((curs == 1) ? " selected" : ""));
     pfp += sprintf(pfp, "%s", "</select></td></tr>");
-    /* FIXME serial */
+    /* serial sensor */
+    curs = getu8setting(nvshandle, "rg15_serport");
+    pfp += sprintf(pfp, "%s", "<tr><th>RG15</th><td>");
+    pfp += sprintf(pfp, "%s", "<label for=\"rg15_serport\">Serial Port</label>:");
+    pfp += sprintf(pfp, "%s", "<select name=\"rg15_serport\" id=\"rg15_serport\">");
+    pfp += sprintf(pfp, "<option value=\"0\"%s>not connected</option>", ((curs == 0) ? " selected" : ""));
+    pfp += sprintf(pfp, "<option value=\"1\"%s>Serial 1</option>", ((curs == 1) ? " selected" : ""));
+    pfp += sprintf(pfp, "%s", "</select></td></tr>");
     strcat(pfp, "<tr><th colspan=\"2\"><input type=\"submit\" name=\"su\" value=\"Set\"></th></tr>");
     strcat(pfp, "</table></form><br>");
   } else if (strcmp(subpage, "setmisc") == 0) { /* Misc settings */

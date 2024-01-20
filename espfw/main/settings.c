@@ -68,12 +68,15 @@ void settings_load(void)
     sprintf(tmp1, "i2c_%d_speed", i2cp);
     loadu8(nvshandle, tmp1, &(settings.i2c_n_speed[i2cp]));
   }
+  loadu8(nvshandle, "ser_1_rx", &(settings.ser_1_rx));
+  loadu8(nvshandle, "ser_1_tx", &(settings.ser_1_tx));
   loadu8(nvshandle, "lps35hw_i2cport", &(settings.lps35hw_i2cport));
   loadu8(nvshandle, "lps35hw_addr", &(settings.lps35hw_addr));
   loadu8(nvshandle, "scd41_i2cport", &(settings.scd41_i2cport));
   loadu8(nvshandle, "sen50_i2cport", &(settings.sen50_i2cport));
   loadu8(nvshandle, "sht4x_addr", &(settings.sht4x_addr));
   loadu8(nvshandle, "sht4x_i2cport", &(settings.sht4x_i2cport));
+  loadu8(nvshandle, "rg15_serport", &(settings.rg15_serport));
   nvs_close(nvshandle);
 }
 

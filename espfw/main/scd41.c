@@ -28,8 +28,25 @@ void scd41_init(void)
     scd41i2cport = ((settings.scd41_i2cport == 1) ? I2C_NUM_0 : I2C_NUM_1);
 
     /* The default power-on-config of the sensor should
-     * be perfectly fine for us, so there is nothing to
-     * configure here. */
+     * be perfectly fine for us, so there is not much to
+     * configure here.
+     * We will however configure the Automatic Self Calibration
+     * feature on or off if the user requested it. */
+    if (settings.scd41_selfcal > 0) {
+      uint8_t cmd[3] = { 0x24, 0x16, 0x00 };
+      if (settings.scd41_selfcal == 1) {
+        cmd[2] = 0x01;
+      }
+      esp_err_t e = i2c_master_write_to_device(scd41i2cport, SCD41ADDR,
+                                               cmd, sizeof(cmd),
+                                               I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+      if (e == ESP_OK) {
+        ESP_LOGI("scd41.c", "Told SCD41 to %s Automatic Self Calibration",
+                            ((settings.scd41_selfcal == 1) ? "Enable" : "Disable"));
+      } else {
+        ESP_LOGW("scd41.c", "got I2C error when trying to configure ASC: %s", esp_err_to_name(e));
+      }
+    }
 }
 
 void scd41_startmeas(void)

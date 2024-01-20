@@ -73,6 +73,7 @@ void settings_load(void)
   loadu8(nvshandle, "lps35hw_i2cport", &(settings.lps35hw_i2cport));
   loadu8(nvshandle, "lps35hw_addr", &(settings.lps35hw_addr));
   loadu8(nvshandle, "scd41_i2cport", &(settings.scd41_i2cport));
+  loadu8(nvshandle, "scd41_selfcal", &(settings.scd41_selfcal));
   loadu8(nvshandle, "sen50_i2cport", &(settings.sen50_i2cport));
   loadu8(nvshandle, "sht4x_addr", &(settings.sht4x_addr));
   loadu8(nvshandle, "sht4x_i2cport", &(settings.sht4x_i2cport));

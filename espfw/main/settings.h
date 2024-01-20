@@ -33,6 +33,7 @@ struct globalsettings {
 	uint8_t lps35hw_i2cport;
 	uint8_t lps35hw_addr; // offset to 0x5c! see lps35hw.c
 	uint8_t scd41_i2cport;
+	uint8_t scd41_selfcal;
 	uint8_t sen50_i2cport;
 	uint8_t sht4x_addr; // offset to 0x44! see sht4x.c
 	uint8_t sht4x_i2cport;

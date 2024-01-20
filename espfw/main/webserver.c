@@ -546,6 +546,13 @@ esp_err_t get_adminmenu_handler(httpd_req_t * req) {
     pfp += sprintf(pfp, "<option value=\"0\"%s>not connected</option>", ((curs == 0) ? " selected" : ""));
     pfp += sprintf(pfp, "<option value=\"1\"%s>I2C 0</option>", ((curs == 1) ? " selected" : ""));
     pfp += sprintf(pfp, "<option value=\"2\"%s>I2C 1</option>", ((curs == 2) ? " selected" : ""));
+    pfp += sprintf(pfp, "%s", "</select><br><label for=\"scd41_selfcal\">");
+    curs = getu8setting(nvshandle, "scd41_selfcal");
+    pfp += sprintf(pfp, "%s", "<abbr title=\"Automatic Self Calibration\">ASC</abbr>:</label>:");
+    pfp += sprintf(pfp, "%s", "<select name=\"scd41_selfcal\" id=\"scd41_selfcal\">");
+    pfp += sprintf(pfp, "<option value=\"0\"%s>use EEPROM setting</option>", ((curs == 0) ? " selected" : ""));
+    pfp += sprintf(pfp, "<option value=\"1\"%s>Enable</option>", ((curs == 1) ? " selected" : ""));
+    pfp += sprintf(pfp, "<option value=\"2\"%s>Disable</option>", ((curs == 2) ? " selected" : ""));
     pfp += sprintf(pfp, "%s", "</select></td></tr>");
     curs = getu8setting(nvshandle, "sen50_i2cport");
     pfp += sprintf(pfp, "%s", "<tr><th>SEN50</th><td>");
@@ -800,8 +807,12 @@ static const struct strset_s strsets[] = {
 static const struct u8set_s u8sets[] = {
   { .name = "lps35hw_addr", .minval = 0, .maxval = 1 },
   { .name = "lps35hw_i2cport", .minval = 0, .maxval = 2 },
+  { .name = "rg15_serport", .minval = 0, .maxval = 1 },
   { .name = "scd41_i2cport", .minval = 0, .maxval = 2 },
+  { .name = "scd41_selfcal", .minval = 0, .maxval = 2 },
   { .name = "sen50_i2cport", .minval = 0, .maxval = 2 },
+  { .name = "ser_1_rx", .minval = 0, .maxval = 64 },
+  { .name = "ser_1_tx", .minval = 0, .maxval = 64 },
   { .name = "sht4x_addr", .minval = 0, .maxval = 2 },
   { .name = "sht4x_i2cport", .minval = 0, .maxval = 2 },
   { .name = "i2c_0_pullups", .minval = 0, .maxval = 1 },

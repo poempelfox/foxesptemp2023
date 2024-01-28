@@ -195,6 +195,9 @@ void app_main(void)
     network_prepare();
     network_on(); /* We don't do network_off, we just try to stay connected */
 
+    /* prepare for submitting/pushing measurements to the internet */
+    submit_init();
+
     /* Configure our 2 I2C-ports, and then the sensors connected there. */
     i2c_port_init();
     sht4x_init();
@@ -290,23 +293,20 @@ void app_main(void)
          * see whether a heating might have influenced the measurements. */
         evs[naevs].lastsht4xheat = lastsht4xheat;
 
-        struct wpds tosubmit[11]; /* we'll submit at most 8 values because we have that many sensors */
-        int nts = 0; /* Number of values to submit */
-        /* Lets define a little helper macro to limit the copy+paste orgies */
-        #define QUEUETOSUBMIT(s, v)  tosubmit[nts].sensorid = s; tosubmit[nts].value = v; nts++;
+        submit_clearqueue(); /* clear the queue before we queue up new values */
 
         if (press > 0) {
           ESP_LOGI(TAG, "Measured pressure: %.3f hPa", press);
           /* submit that measurement */
           evs[naevs].press = press;
-          QUEUETOSUBMIT(WPDSID_PRESSURE, press);
+          submit_queuevalue(ST_PRESSURE, press, 100);
         } else {
           evs[naevs].press = NAN;
         }
 
         if (raing > -0.1) {
           ESP_LOGI(TAG, "Rain: %.3f mm", raing);
-          QUEUETOSUBMIT(WPDSID_RAINGAUGE, raing);
+          submit_queuevalue(ST_RAINGAUGE, raing, 100);
           evs[naevs].raing = raing;
         } else {
           evs[naevs].raing = NAN;
@@ -340,8 +340,8 @@ void app_main(void)
           }
           evs[naevs].temp = temphum.temp;
           evs[naevs].hum = temphum.hum;
-          QUEUETOSUBMIT(WPDSID_TEMPERATURE, temphum.temp);
-          QUEUETOSUBMIT(WPDSID_HUMIDITY, temphum.hum);
+          submit_queuevalue(ST_TEMPERATURE, temphum.temp, 100);
+          submit_queuevalue(ST_HUMIDITY, temphum.hum, 100);
         } else {
           evs[naevs].temp = NAN;
           evs[naevs].hum = NAN;
@@ -354,7 +354,7 @@ void app_main(void)
                         co2data.temp, co2data.tempraw,
                         co2data.hum, co2data.humraw);
           evs[naevs].co2 = co2data.co2;
-          QUEUETOSUBMIT(WPDSID_CO2, co2data.co2);
+          submit_queuevalue(ST_CO2, co2data.co2, 100);
         } else {
           evs[naevs].co2 = 0xffff; /* no such thing as a NAN here :-/ */
         }
@@ -368,31 +368,27 @@ void app_main(void)
           evs[naevs].pm025 = pmdata.pm025;
           evs[naevs].pm040 = pmdata.pm040;
           evs[naevs].pm100 = pmdata.pm100;
-          QUEUETOSUBMIT(WPDSID_PM010, pmdata.pm010);
-          QUEUETOSUBMIT(WPDSID_PM025, pmdata.pm025);
-          QUEUETOSUBMIT(WPDSID_PM040, pmdata.pm040);
-          QUEUETOSUBMIT(WPDSID_PM100, pmdata.pm100);
+          submit_queuevalue(ST_PM010, pmdata.pm010, 100);
+          submit_queuevalue(ST_PM025, pmdata.pm025, 100);
+          submit_queuevalue(ST_PM040, pmdata.pm040, 100);
+          submit_queuevalue(ST_PM100, pmdata.pm100, 100);
         } else {
           evs[naevs].pm010 = NAN;
           evs[naevs].pm025 = NAN;
           evs[naevs].pm040 = NAN;
           evs[naevs].pm100 = NAN;
         }
-        /* Clean up helper macro */
-        #undef QUEUETOSUBMIT
 
         /* Now mark the updated values as the current ones for the webserver */
         activeevs = naevs;
 
         /* submit values (if any). Record if we succeeded doing so. */
-        ESP_LOGI(TAG, "have %d values to submit...", nts);
-        if (nts > 0) {
-          if (submit_to_wpd_multi(nts, tosubmit) == 0) {
-            ESP_LOGI(TAG, "successfully submitted values.");
-            lastsuccsubmit = time(NULL);
-          } else {
-            ESP_LOGW(TAG, "failed to submit values!");
-          }
+        ESP_LOGI(TAG, "submitting values to wetter.poempelfox.de...");
+        if (submit_to_wpd() == 0) {
+          ESP_LOGI(TAG, "successfully submitted values.");
+          lastsuccsubmit = time(NULL);
+        } else {
+          ESP_LOGW(TAG, "failed to submit values!");
         }
         if ((curts > 900)
          && ((curts - lastsuccsubmit) > 900)

@@ -2,31 +2,38 @@
 #ifndef _SUBMIT_H_
 #define _SUBMIT_H_
 
-/* An array of the following structs is handed to the
- * submit_to_opensensemap_multi function */
-struct wpds {
-  const char * sensorid;
-  float value;
+/* Types of sensors.
+ * we need to fix the values, as they show up in settings stored in
+ * flash, so they must not change as new sensor types are added. */
+enum sensortypes {
+  ST_TEMPERATURE = 0,
+  ST_HUMIDITY = 1,
+  ST_PRESSURE = 2,
+  ST_RAINGAUGE = 3,
+  ST_CO2 = 4,
+  ST_PM010 = 5,
+  ST_PM025 = 6,
+  ST_PM040 = 7,
+  ST_PM100 = 8,
 };
 
-/* The IDs of our sensors on wetter.poempelfox.de. */
-#define WPDSID_TEMPERATURE "96"
-#define WPDSID_HUMIDITY "97"
-#define WPDSID_PRESSURE "999"
-#define WPDSID_RAINGAUGE "999"
-#define WPDSID_PM010 "999"
-#define WPDSID_PM025 "999"
-#define WPDSID_PM040 "999"
-#define WPDSID_PM100 "999"
-#define WPDSID_CO2 "98"
+/* Initializes internal structure. Call once at start of program
+ * and before calling anything else. */
+void submit_init(void);
 
-/* Submits multiple values to the wetter.poempelfox.de API
+/* clears/empties the submit queue. */
+void submit_clearqueue(void);
+
+/* This queues one value for submission.
+ * 'prio' is a priority, for cases where there might be multiple
+ * sensors submitting measurements for e.g. temperature, but with
+ * different quality: a value with higher prio replaces previous
+ * queue-entries with lower prio values. */
+void submit_queuevalue(enum sensortypes st, float value, uint8_t prio);
+
+/* Submits all queued values to the wetter.poempelfox.de API
  * in one HTTPS request */
-int submit_to_wpd_multi(int arraysize, struct wpds * arrayofwpds);
-
-/* This is a convenience function, calling ..._wpd_multi
- * with a size 1 array internally. */
-int submit_to_wpd(char * sensorid, float value);
+int submit_to_wpd(void);
 
 #endif /* _SUBMIT_H_ */
 

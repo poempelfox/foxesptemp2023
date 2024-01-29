@@ -385,7 +385,6 @@ void app_main(void)
         /* submit values (if any). Record if we succeeded doing so. */
         ESP_LOGI(TAG, "submitting values to wetter.poempelfox.de...");
         if (submit_to_wpd() == 0) {
-          ESP_LOGI(TAG, "successfully submitted values.");
           lastsuccsubmit = time(NULL);
         } else {
           ESP_LOGW(TAG, "failed to submit values!");

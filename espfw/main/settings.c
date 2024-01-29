@@ -30,6 +30,7 @@ static void loadstr(nvs_handle_t nvshandle, const char * key, char * out, size_t
 
 void settings_load(void)
 {
+  uint8_t tmp1[50];
   /* nvs_flash_init() is already done in main before we run. */
   /* bare minimum fallback settings so we have a way to configure this thing */
   uint8_t mainmac[6];
@@ -56,8 +57,6 @@ void settings_load(void)
   loadstr(nvshandle, "wifi_cl_pw", settings.wifi_cl_pw, sizeof(settings.wifi_cl_pw));
   loadstr(nvshandle, "wifi_ap_ssid", settings.wifi_ap_ssid, sizeof(settings.wifi_ap_ssid));
   loadstr(nvshandle, "wifi_ap_pw", settings.wifi_ap_pw, sizeof(settings.wifi_ap_pw));
-  loadstr(nvshandle, "wpdtoken", settings.wpdtoken, sizeof(settings.wpdtoken));
-  uint8_t tmp1[20];
   for (int i2cp = 0; i2cp <= 1; i2cp++) {
     sprintf(tmp1, "i2c_%d_pullups", i2cp);
     loadu8(nvshandle, tmp1, &(settings.i2c_n_pullups[i2cp]));
@@ -78,6 +77,12 @@ void settings_load(void)
   loadu8(nvshandle, "sht4x_addr", &(settings.sht4x_addr));
   loadu8(nvshandle, "sht4x_i2cport", &(settings.sht4x_i2cport));
   loadu8(nvshandle, "rg15_serport", &(settings.rg15_serport));
+  loadu8(nvshandle, "wpd_enabled", &(settings.wpd_enabled));
+  for (int i = 0; i < NR_SENSORTYPES; i++) {
+    sprintf(tmp1, "wpd_sensid_t%03d", i);
+    loadstr(nvshandle, tmp1, settings.wpd_sensid[i], sizeof(settings.wpd_sensid[i]));
+  }
+  loadstr(nvshandle, "wpd_token", settings.wpd_token, sizeof(settings.wpd_token));
   nvs_close(nvshandle);
 }
 

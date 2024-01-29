@@ -6,6 +6,9 @@
 #ifndef _SETTINGS_H_
 #define _SETTINGS_H_
 
+/* we need this for NR_SENSORTYPES */
+#include "submit.h"
+
 #define WIFIMODE_AP 0
 #define WIFIMODE_CL 1
 
@@ -18,8 +21,6 @@ struct globalsettings {
 	uint8_t wifi_ap_pw[64];
 	/* Password for the Admin pages in the Webinterface */
 	uint8_t adminpw[25];
-	/* Token for submitting values to wetter.poempelfox.de */
-	uint8_t wpdtoken[65];
 	/* the pins used for I2C, 0 for disable, GPIOnumber+1 otherwise. */
 	uint8_t i2c_n_scl[2];
 	uint8_t i2c_n_sda[2];
@@ -39,6 +40,10 @@ struct globalsettings {
 	uint8_t sht4x_i2cport;
 	/* On which serial port are the respective sensors? */
 	uint8_t rg15_serport;
+	/* Settings for submitting values to wetter.poempelfox.de */
+        uint8_t wpd_enabled;
+	uint8_t wpd_token[65]; /* Token for authentication. */
+	uint8_t wpd_sensid[NR_SENSORTYPES][12];
 };
 
 extern struct globalsettings settings;

@@ -30,6 +30,22 @@ void submit_init(void)
   }
 }
 
+const uint8_t * st_to_name(enum sensortypes st)
+{
+  switch (st) {
+  case ST_TEMPERATURE: return "temperature";
+  case ST_HUMIDITY:    return "humidity";
+  case ST_PRESSURE:    return "pressure";
+  case ST_RAINGAUGE:   return "raingauge";
+  case ST_CO2:         return "CO2";
+  case ST_PM010:       return "PM1.0";
+  case ST_PM025:       return "PM2.5";
+  case ST_PM040:       return "PM4.0";
+  case ST_PM100:       return "PM10";
+  default:             return "UNKNOWN";
+  };
+}
+
 /* clears/empties the submit queue. */
 void submit_clearqueue(void)
 {
@@ -43,6 +59,10 @@ void submit_clearqueue(void)
  * queue-entries with lower prio values. */
 void submit_queuevalue(enum sensortypes st, float value, uint8_t prio)
 {
+  if (st >= NR_SENSORTYPES) {
+    ESP_LOGE("submit.c", "Trying to queue value for nonexistant sensortype!");
+    return;
+  }
   /* First, search if there is a queue slot we need
    * to overwrite due to prio. */
   for (int i = 0; i < ninqueue; i++) {
@@ -70,25 +90,17 @@ void submit_queuevalue(enum sensortypes st, float value, uint8_t prio)
   ninqueue++;
 }
 
-uint8_t * mapsenstype(enum sensortypes st)
-{
-  if (st == ST_TEMPERATURE) {
-    return "96";
-  } else if (st == ST_HUMIDITY) {
-    return "97";
-  } else if (st == ST_CO2) {
-    return "98";
-  }
-  return "";
-}
-
 int submit_to_wpd(void)
 {
     int res = 0;
-    if ((strcmp(settings.wpdtoken, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLM123456789") == 0)
-     || (strcmp(settings.wpdtoken, "") == 0)) {
+    if (settings.wpd_enabled == 0) {
+      ESP_LOGI("submit.c", "Not sending data to wetter.poempelfox.de because it's disabled.");
+      return 0; /* not an error */
+    }
+    if ((strcmp(settings.wpd_token, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLM123456789") == 0)
+     || (strcmp(settings.wpd_token, "") == 0)) {
       ESP_LOGI("submit.c", "Not sending data to wetter.poempelfox.de because no valid token has been set.");
-      return 1;
+      return 0; /* not an error */
     }
     char post_data[800];
     /* Build the contents of the HTTP POST we will
@@ -97,9 +109,9 @@ int submit_to_wpd(void)
     int nvv = 0;
     for (int i = 0; i < ninqueue; i++) {
       if (nvv != 0) { strcat(post_data, ",\n"); }
-      uint8_t * sensorid = mapsenstype(theq[i].st);
+      uint8_t * sensorid = settings.wpd_sensid[theq[i].st];
       if (strcmp(sensorid, "") == 0) {
-        ESP_LOGI("submit.c", "Skipping sending data to wetter.poempelfox.de because sensorid has not been set in arrayelement %d of %d.", i, ninqueue);
+        ESP_LOGI("submit.c", "Skipping sending data to wetter.poempelfox.de because there is no mapping for sensortype %s - arrayelement %d of %d.", st_to_name(theq[i].st), i, ninqueue);
         continue;
       }
       nvv++;
@@ -122,7 +134,7 @@ int submit_to_wpd(void)
     };
     esp_http_client_handle_t httpcl = esp_http_client_init(&httpcc);
     esp_http_client_set_header(httpcl, "Content-Type", "application/json");
-    esp_http_client_set_header(httpcl, "X-Sensor", settings.wpdtoken);
+    esp_http_client_set_header(httpcl, "X-Sensor", settings.wpd_token);
     esp_http_client_set_post_field(httpcl, post_data, strlen(post_data));
     esp_err_t err = esp_http_client_perform(httpcl);
     if (err == ESP_OK) {

@@ -611,6 +611,30 @@ esp_err_t get_adminmenu_handler(httpd_req_t * req) {
     strcat(myresponse, "<input type=\"text\" name=\"repadminpw\" id=\"repadminpw\" value=\"\"></td></tr>");
     strcat(myresponse, "<tr><th colspan=\"2\"><input type=\"submit\" name=\"su\" value=\"Set\"></th></tr>");
     strcat(myresponse, "</table></form><br>");
+  } else if (strcmp(subpage, "setsubwpd") == 0) { /* settings for submitting to wetter.poempelfox.de */
+    strcpy(myresponse, "<form action=\"savesettings\" method=\"POST\" onsubmit=\"submitsettings(event)\">");
+    strcat(myresponse, "<table>");
+    curs = getu8setting(nvshandle, "wpd_enabled");
+    strcat(myresponse, "<tr><th><label for=\"wpd_enabled\">Submit values to<br>wetter.poempelfox.de");
+    strcat(myresponse, "</label></th><td>");
+    strcat(myresponse, "<select name=\"wpd_enabled\" id=\"wpd_enabled\">");
+    pfp = myresponse + strlen(myresponse);
+    pfp += sprintf(pfp, "<option value=\"0\"%s>Disabled</option>", ((curs == 0) ? " selected" : ""));
+    pfp += sprintf(pfp, "<option value=\"1\"%s>Enabled</option>", ((curs == 1) ? " selected" : ""));
+    pfp += sprintf(pfp, "%s", "</select></td></tr>");
+    getstrsetting(nvshandle, "wpd_token", tmp1, sizeof(tmp1));
+    pfp += sprintf(pfp, "%s", "<tr><th><label for=\"wpd_token\">Token for authentication");
+    pfp += sprintf(pfp, "%s", "</label></th><td>");
+    pfp += sprintf(pfp, "<input type=\"text\" name=\"wpd_token\" id=\"wpd_token\" value=\"%s\"></td></tr>", tmp1);
+    for (int i = 0; i < NR_SENSORTYPES; i++) {
+      uint8_t tmp2[20];
+      sprintf(tmp2, "wpd_sensid_t%03d", i);
+      getstrsetting(nvshandle, tmp2, tmp1, sizeof(tmp1));
+      pfp += sprintf(pfp, "<tr><th><label for=\"%s\">SensorID for %s</label></th><td>", tmp2, st_to_name(i));
+      pfp += sprintf(pfp, "<input type=\"text\" name=\"%s\" id=\"%s\" value=\"%s\"></td></tr>", tmp2, tmp2, tmp1);
+    }
+    strcat(pfp, "<tr><th colspan=\"2\"><input type=\"submit\" name=\"su\" value=\"Set\"></th></tr>");
+    strcat(pfp, "</table></form><br>");
   } else {
     strcpy(myresponse, "??? Unknown subpage requested.");
   }
@@ -788,6 +812,7 @@ struct strset_s {
   const uint8_t * name;
   int minlen;
   int maxlen;
+  int arraysize; /* For array settings only. */
 };
 
 struct u8set_s {
@@ -802,6 +827,8 @@ static const struct strset_s strsets[] = {
   { .name = "wifi_ap_pw", .minlen = 0, .maxlen = 63 },
   { .name = "wifi_cl_ssid", .minlen = 2, .maxlen = 32 },
   { .name = "wifi_cl_pw", .minlen = 0, .maxlen = 63 },
+  { .name = "wpd_sensid_t%03d", .minlen = 0, .maxlen = 11, .arraysize = NR_SENSORTYPES },
+  { .name = "wpd_token", .minlen = 0, .maxlen = 64 },
 };
 
 static const struct u8set_s u8sets[] = {
@@ -824,6 +851,7 @@ static const struct u8set_s u8sets[] = {
   { .name = "i2c_1_sda", .minval = 0, .maxval = 64 },
   { .name = "i2c_1_speed", .minval = 0, .maxval = 4 },
   { .name = "wifi_mode", .minval = 0, .maxval = 1 },
+  { .name = "wpd_enabled", .minval = 0, .maxval = 1 },
 };
 
 esp_err_t post_savesettings(httpd_req_t * req) {
@@ -862,78 +890,86 @@ esp_err_t post_savesettings(httpd_req_t * req) {
   }
   /* string values */
   for (int i = 0; i < (sizeof(strsets) / sizeof(struct strset_s)); i++) {
-    if (httpd_query_key_value(postcontent, strsets[i].name, tmp1, sizeof(tmp1)) != ESP_OK) {
-      continue; // No such setting in submitted values.
-    }
-    unescapeuestring(tmp1);
-    if (strlen(tmp1) < strsets[i].minlen) {
-      sprintf(myresponse, "ERROR: '%s' needs to be at least %d characters long.",
-                          strsets[i].name, strsets[i].minlen);
-      httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
-      return ESP_OK;
-    }
-    if (strlen(tmp1) > strsets[i].maxlen) {
-      sprintf(myresponse, "ERROR: '%s' can be at most %d characters long.",
-                          strsets[i].name, strsets[i].maxlen);
-      httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
-      return ESP_OK;
-    }
-    /* Length seems OK. Those were the common sanity checks, now special cases: */
-    if (strcmp(strsets[i].name, "adminpw") == 0) {
-      if (strlen(tmp1) == 0) { /* Field empty, user does not want to change the password. */
-        continue;
+    for (int arpos = 0; arpos < ((strsets[i].arraysize < 1) ? 1 : strsets[i].arraysize); arpos++) {
+      uint8_t strsname[50];
+      if (strsets[i].arraysize > 0) { // this should contain one %d in the name
+        sprintf(strsname, strsets[i].name, arpos);
+      } else { // no array, so no %d in name, just copy over.
+        strcpy(strsname, strsets[i].name);
       }
-      /* Changing the adminpw requires entering the old password, and the new
-       * password twice. */
-      if (httpd_query_key_value(postcontent, "curadminpw", tmp2, sizeof(tmp2)) != ESP_OK) {
-        strcpy(myresponse, "ERROR: cannot change admin password - current password entered incorrectly.");
+      if (httpd_query_key_value(postcontent, strsname, tmp1, sizeof(tmp1)) != ESP_OK) {
+        continue; // No such setting in submitted values.
+      }
+      unescapeuestring(tmp1);
+      if (strlen(tmp1) < strsets[i].minlen) {
+        sprintf(myresponse, "ERROR: '%s' needs to be at least %d characters long.",
+                            strsname, strsets[i].minlen);
         httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
         return ESP_OK;
       }
-      unescapeuestring(tmp2);
-      if (strcmp(tmp2, settings.adminpw) != 0) {
-        strcpy(myresponse, "ERROR: cannot change admin password - current password entered incorrectly.");
+      if (strlen(tmp1) > strsets[i].maxlen) {
+        sprintf(myresponse, "ERROR: '%s' can be at most %d characters long.",
+                            strsname, strsets[i].maxlen);
         httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
         return ESP_OK;
       }
-      /* OK, so current password is entered correctly, are both fields for the new PW identical? */
-      if (httpd_query_key_value(postcontent, "repadminpw", tmp2, sizeof(tmp2)) != ESP_OK) {
-        strcpy(myresponse, "ERROR: cannot change admin password - new password entered incorrectly.");
-        httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
-        return ESP_OK;
+      /* Length seems OK. Those were the common sanity checks, now special cases: */
+      if (strcmp(strsname, "adminpw") == 0) {
+        if (strlen(tmp1) == 0) { /* Field empty, user does not want to change the password. */
+          continue;
+        }
+        /* Changing the adminpw requires entering the old password, and the new
+         * password twice. */
+        if (httpd_query_key_value(postcontent, "curadminpw", tmp2, sizeof(tmp2)) != ESP_OK) {
+          strcpy(myresponse, "ERROR: cannot change admin password - current password entered incorrectly.");
+          httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+          return ESP_OK;
+        }
+        unescapeuestring(tmp2);
+        if (strcmp(tmp2, settings.adminpw) != 0) {
+          strcpy(myresponse, "ERROR: cannot change admin password - current password entered incorrectly.");
+          httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+          return ESP_OK;
+        }
+        /* OK, so current password is entered correctly, are both fields for the new PW identical? */
+        if (httpd_query_key_value(postcontent, "repadminpw", tmp2, sizeof(tmp2)) != ESP_OK) {
+          strcpy(myresponse, "ERROR: cannot change admin password - new password entered incorrectly.");
+          httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+          return ESP_OK;
+        }
+        unescapeuestring(tmp2);
+        if (strcmp(tmp2, tmp1) != 0) {
+          strcpy(myresponse, "ERROR: cannot change admin password - fields for new password are not identical.");
+          httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
+          return ESP_OK;
+        }
       }
-      unescapeuestring(tmp2);
-      if (strcmp(tmp2, tmp1) != 0) {
-        strcpy(myresponse, "ERROR: cannot change admin password - fields for new password are not identical.");
-        httpd_resp_send(req, myresponse, HTTPD_RESP_USE_STRLEN);
-        return ESP_OK;
-      }
-    }
-    /* Has the value changed? */
-    size_t len = sizeof(tmp2);
-    e = nvs_get_str(nvshandle, strsets[i].name, tmp2, &len);
-    if ((e != ESP_OK) && (e != ESP_ERR_NVS_NOT_FOUND)) {
-      ESP_LOGE("webserver.c", "Failed to query setting in flash: %s.",
-                              esp_err_to_name(e));
-      httpd_resp_set_status(req, "500 Internal Server Error");
-      httpd_resp_send(req, "Error reading non-volatile storage for settings.", HTTPD_RESP_USE_STRLEN);
-      return ESP_OK;
-    }
-    if ((e == ESP_ERR_NVS_NOT_FOUND)
-     || (strcmp(tmp1, tmp2) != 0)) { // OK, this setting has changed.
-      // Write the changed value.
-      e = nvs_set_str(nvshandle, strsets[i].name, tmp1);
-      if (e != ESP_OK) {
-        ESP_LOGE("webserver.c", "Failed to write changed setting to flash: %s.",
+      /* Has the value changed? */
+      size_t len = sizeof(tmp2);
+      e = nvs_get_str(nvshandle, strsname, tmp2, &len);
+      if ((e != ESP_OK) && (e != ESP_ERR_NVS_NOT_FOUND)) {
+        ESP_LOGE("webserver.c", "Failed to query setting in flash: %s.",
                                 esp_err_to_name(e));
         httpd_resp_set_status(req, "500 Internal Server Error");
-        httpd_resp_send(req, "Error writing non-volatile storage for settings.", HTTPD_RESP_USE_STRLEN);
+        httpd_resp_send(req, "Error reading non-volatile storage for settings.", HTTPD_RESP_USE_STRLEN);
         return ESP_OK;
       }
-      settingshavechanged = 1;
-      strcat(myresponse, "'");
-      strcat(myresponse, strsets[i].name);
-      strcat(myresponse, "' changed.<br>");
+      if ((e == ESP_ERR_NVS_NOT_FOUND)
+       || (strcmp(tmp1, tmp2) != 0)) { // OK, this setting has changed.
+        // Write the changed value.
+        e = nvs_set_str(nvshandle, strsname, tmp1);
+        if (e != ESP_OK) {
+          ESP_LOGE("webserver.c", "Failed to write changed setting to flash: %s.",
+                                  esp_err_to_name(e));
+          httpd_resp_set_status(req, "500 Internal Server Error");
+          httpd_resp_send(req, "Error writing non-volatile storage for settings.", HTTPD_RESP_USE_STRLEN);
+          return ESP_OK;
+        }
+        settingshavechanged = 1;
+        strcat(myresponse, "'");
+        strcat(myresponse, strsname);
+        strcat(myresponse, "' changed.<br>");
+      }
     }
   }
   /* u8 values */

@@ -93,6 +93,8 @@ function togset(e, s) {
 <div id="setsensors" style="display:none;">Loading... (note: this requires Javascript!)</div>
 <h4 onclick="togset(event, 'setmisc');">&#9656; Miscellaneous</h4>
 <div id="setmisc" style="display:none;">Loading... (note: this requires Javascript!)</div>
+<h4 onclick="togset(event, 'setsubwpd');">&#9656; Submit to wetter.poempelfox.de</h4>
+<div id="setsubwpd" style="display:none;">Loading... (note: this requires Javascript!)</div>
 <!-- more settings to come -->
 </body></html>
 

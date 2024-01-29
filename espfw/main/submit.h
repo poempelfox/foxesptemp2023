@@ -15,7 +15,11 @@ enum sensortypes {
   ST_PM025 = 6,
   ST_PM040 = 7,
   ST_PM100 = 8,
+  NR_SENSORTYPES = 9
 };
+
+/* Converts the sensortype to a human readable string */
+const uint8_t * st_to_name(enum sensortypes st);
 
 /* Initializes internal structure. Call once at start of program
  * and before calling anything else. */

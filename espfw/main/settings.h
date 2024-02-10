@@ -12,6 +12,18 @@
 #define WIFIMODE_AP 0
 #define WIFIMODE_CL 1
 
+/* Types of displays.
+ * we need to fix the values, as they show up in settings stored in
+ * flash, so they must not change as new sensor types are added. */
+enum di_displaytypes {
+  DI_DT_NONE = 0,
+  // Winstar WEA012864DWPP3N00003, SSD1306 based, likely to work
+  // for some other 128x64 displays
+  DI_DT_SSD1306_1 = 1,
+  // Zhongjingyuan SSD1309 based 2.42 inch 128x64 display
+  DI_DT_SSD1309_1 = 2,
+};
+
 struct globalsettings {
 	/* WiFi settings */
 	uint8_t wifi_mode; /* AP or CLient */
@@ -40,6 +52,9 @@ struct globalsettings {
 	uint8_t sht4x_i2cport;
 	/* On which serial port are the respective sensors? */
 	uint8_t rg15_serport;
+	/* Display settings */
+	uint8_t di_type; // see enum di_displaytypes
+	uint8_t di_i2cport; // for I2C displays
 	/* Settings for submitting values to wetter.poempelfox.de */
         uint8_t wpd_enabled;
 	uint8_t wpd_token[65]; /* Token for authentication. */

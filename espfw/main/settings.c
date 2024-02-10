@@ -77,6 +77,8 @@ void settings_load(void)
   loadu8(nvshandle, "sht4x_addr", &(settings.sht4x_addr));
   loadu8(nvshandle, "sht4x_i2cport", &(settings.sht4x_i2cport));
   loadu8(nvshandle, "rg15_serport", &(settings.rg15_serport));
+  loadu8(nvshandle, "di_type", &(settings.di_type));
+  loadu8(nvshandle, "di_i2cport", &(settings.di_i2cport));
   loadu8(nvshandle, "wpd_enabled", &(settings.wpd_enabled));
   for (int i = 0; i < NR_SENSORTYPES; i++) {
     sprintf(tmp1, "wpd_sensid_t%03d", i);

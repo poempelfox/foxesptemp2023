@@ -55,43 +55,71 @@ static void ssd130x_sendcommand3(uint8_t cmd1, uint8_t cmd2, uint8_t cmd3)
                                I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
 }
 
+/* returns 1 if the display is one of the types we support, 0 otherwise. */
+static int ssd130x_isoneofours(uint8_t dt)
+{
+    if (dt == DI_DT_SSD1306_1) return 1;
+    if (dt == DI_DT_SSD1309_1) return 1;
+    // none of our display type
+    return 0;
+}
+
 void ssd130x_init(void)
 {
-#if 0 /* FIXME settings not implemented yet */
-    if (settings.ssd130x_i2cport > 0) {
+    if (ssd130x_isoneofours(settings.di_type) != 1) {
+      return;
+    }
+    if (settings.di_i2cport > 0) {
       /* An I2C-port is configured, but is that port disabled? */
-      if ((settings.i2c_n_scl[settings.ssd130x_i2cport - 1] == 0)
-       || (settings.i2c_n_sda[settings.ssd130x_i2cport - 1] == 0)) {
+      if ((settings.i2c_n_scl[settings.di_i2cport - 1] == 0)
+       || (settings.i2c_n_sda[settings.di_i2cport - 1] == 0)) {
         /* It is. Force disabled-setting for us too. */
-        settings.ssd130x_i2cport = 0;
-        ESP_LOGW("ssd130x.c", "WARNING: SSD130X automatically disabled because it is connected to a disabled I2C port.");
+        settings.di_i2cport = 0;
+        ESP_LOGW("ssd130x.c", "WARNING: SSD130X display automatically disabled because it is connected to a disabled I2C port.");
       }
     }
-    if (settings.ssd130x_i2cport == 0) return;
-    ssd130xi2cport = ((settings.ssd130x_i2cport == 1) ? I2C_NUM_0 : I2C_NUM_1);
+    if (settings.di_i2cport == 0) return;
+    ssd130xi2cport = ((settings.di_i2cport == 1) ? I2C_NUM_0 : I2C_NUM_1);
+#if 0 /* FIXME setting not implemented yet */
     ssd130xaddr = SSD130XBASEADDR + settings.ssd130x_addr;
 #else
     /* Hardcoded settings for now. */
-    ssd130xi2cport = I2C_NUM_0;
     ssd130xaddr = SSD130XBASEADDR + 0;
 #endif
 
     /* The initialization sequence is essentially copy+paste from the datasheet
-     * of our Winstar WEA012864DWPP3N00003, and probably needs some tweaking
+     * of a Winstar WEA012864DWPP3N00003, and probably needs some tweaking
      * to work with other display modules using the same chip. */
     ssd130x_sendcommand1(0xAE);        /* Display OFF */
-    ssd130x_sendcommand2(0xD5, 0x80);  /* Set Display Clock to 105Hz */
+    if (settings.di_type == DI_DT_SSD1306_1) {
+      ssd130x_sendcommand2(0xD5, 0x80);  /* Set Display Clock to 105Hz */
+    } else {
+      ssd130x_sendcommand2(0xD5, 0xF0);  /* Set Display Clock to ? */
+    }
     ssd130x_sendcommand2(0xA8, 0x3F);  /* Select default Multiplex ratio (MUX64) */
     ssd130x_sendcommand2(0xD3, 0x00);  /* Set display offset to 0 */
     ssd130x_sendcommand1(0x40);        /* Set display start line to 0 */
-    ssd130x_sendcommand2(0x8D, 0x14);  /* Enable internal charge pump at the default 7.5V */
-    ssd130x_sendcommand2(0xAD, 0x30);  /* Enable internal Iref at 30uA, resulting in a maximum Iseg=240uA */
+    if (settings.di_type == DI_DT_SSD1306_1) {
+      ssd130x_sendcommand2(0x8D, 0x14);  /* Enable internal charge pump at the default 7.5V */
+      ssd130x_sendcommand2(0xAD, 0x30);  /* Enable internal Iref at 30uA, resulting in a maximum Iseg=240uA */
+    } else {
+      /* the adafruit example code recommended by the display
+       * seller does not seem to configure
+       * 0x8D internal charge pump at all */
+      ssd130x_sendcommand2(0xAD, 0x8E);  /* select external Iref */
+    }
     ssd130x_sendcommand1(0xA1);        /* Segment remap (mirroring all pixels left<->right) */
     ssd130x_sendcommand1(0xC8);        /* COM output scan direction: remapped */
     ssd130x_sendcommand2(0xDA, 0x12);  /* alternative COM pin configuration, no COM left/right remap */
-    ssd130x_sendcommand2(0x81, 0xFF);  /* Set contrast to '0xff' (range 0x01-0xff, default of chip 0x7f) */
-    ssd130x_sendcommand2(0xD9, 0x22);  /* Set precharge period, phase 1 = 2 DCLK, phase 2 = 2 DCLK, that is also the default of the chip. */
-    ssd130x_sendcommand2(0xDB, 0x30);  /* Set Vcomh deselect level to 0.83 * Vcc */
+    if (settings.di_type == DI_DT_SSD1306_1) {
+      ssd130x_sendcommand2(0x81, 0xFF);  /* Set contrast to '0xff' (range 0x01-0xff, default of chip 0x7f) */
+      ssd130x_sendcommand2(0xD9, 0x22);  /* Set precharge period, phase 1 = 2 DCLK, phase 2 = 2 DCLK, that is also the default of the chip. */
+      ssd130x_sendcommand2(0xDB, 0x30);  /* Set Vcomh deselect level to 0.83 * Vcc */
+    } else {
+      ssd130x_sendcommand2(0x81, 0x32);  /* Set contrast */
+      ssd130x_sendcommand2(0xD9, 0xF1);  /* Set precharge period */
+      /* does not seem to set Vcomh */
+    }
     ssd130x_sendcommand1(0xA4);        /* Display ON, output follows RAM contents */
     ssd130x_sendcommand1(0xA6);        /* Normal non-inverted display (A7 to invert) */
     ssd130x_sendcommand1(0xAF);        /* Display ON in normal mode */
@@ -99,6 +127,9 @@ void ssd130x_init(void)
 
 void ssd130x_display(struct di_dispbuf * db)
 {
+    if (ssd130x_isoneofours(settings.di_type) != 1) {
+      return;
+    }
     /* The display has a somewhat weird memory layout: Each byte in memory
      * addresses one column for 8 rows, with the LSB being (relative) row 0 and
      * the MSB being (relative) row 7. There are 8 "pages". Each page contains

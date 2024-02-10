@@ -451,6 +451,7 @@ esp_err_t get_adminmenu_handler(httpd_req_t * req) {
                             " lots of consequential ESP_ERR_NVS_INVALID_HANDLE"
                             " errors directly below this.");
   }
+  /* Try to keep these sorted, in the order as they appear in the webinterface. */
   if (strcmp(subpage, "main") == 0) { /* Main page - this includes the others via JS */
     strcpy(myresponse, adminmenu_p1);
     pfp = myresponse + strlen(myresponse);
@@ -596,6 +597,26 @@ esp_err_t get_adminmenu_handler(httpd_req_t * req) {
     pfp += sprintf(pfp, "%s", "<select name=\"rg15_serport\" id=\"rg15_serport\">");
     pfp += sprintf(pfp, "<option value=\"0\"%s>not connected</option>", ((curs == 0) ? " selected" : ""));
     pfp += sprintf(pfp, "<option value=\"1\"%s>Serial 1</option>", ((curs == 1) ? " selected" : ""));
+    pfp += sprintf(pfp, "%s", "</select></td></tr>");
+    strcat(pfp, "<tr><th colspan=\"2\"><input type=\"submit\" name=\"su\" value=\"Set\"></th></tr>");
+    strcat(pfp, "</table></form><br>");
+  } else if (strcmp(subpage, "setdisplay") == 0) { /* Display settings */
+    strcpy(myresponse, "<form action=\"savesettings\" method=\"POST\" onsubmit=\"submitsettings(event)\">");
+    strcat(myresponse, "<table>");
+    pfp = myresponse + strlen(myresponse);
+    curs = getu8setting(nvshandle, "di_type");
+    pfp += sprintf(pfp, "%s", "<tr><th>Display type</th><td>");
+    pfp += sprintf(pfp, "%s", "<select name=\"di_type\" id=\"di_type\">");
+    pfp += sprintf(pfp, "<option value=\"%d\"%s>none</option>", DI_DT_NONE, ((curs == DI_DT_NONE) ? " selected" : ""));
+    pfp += sprintf(pfp, "<option value=\"%d\"%s>SSD1306 variant 1</option>", DI_DT_SSD1306_1, ((curs == DI_DT_SSD1306_1) ? " selected" : ""));
+    pfp += sprintf(pfp, "<option value=\"%d\"%s>SSD1309 variant 1</option>", DI_DT_SSD1309_1, ((curs == DI_DT_SSD1309_1) ? " selected" : ""));
+    pfp += sprintf(pfp, "%s", "</select></td></tr>");
+    curs = getu8setting(nvshandle, "di_i2cport");
+    pfp += sprintf(pfp, "%s", "<tr><th>I2C-port<br><small>(for I2C displays)</small></th><td>");
+    pfp += sprintf(pfp, "%s", "<select name=\"di_i2cport\" id=\"di_i2cport\">");
+    pfp += sprintf(pfp, "<option value=\"0\"%s>not connected</option>", ((curs == 0) ? " selected" : ""));
+    pfp += sprintf(pfp, "<option value=\"1\"%s>I2C 0</option>", ((curs == 1) ? " selected" : ""));
+    pfp += sprintf(pfp, "<option value=\"2\"%s>I2C 1</option>", ((curs == 2) ? " selected" : ""));
     pfp += sprintf(pfp, "%s", "</select></td></tr>");
     strcat(pfp, "<tr><th colspan=\"2\"><input type=\"submit\" name=\"su\" value=\"Set\"></th></tr>");
     strcat(pfp, "</table></form><br>");
@@ -852,6 +873,8 @@ static const struct u8set_s u8sets[] = {
   { .name = "i2c_1_speed", .minval = 0, .maxval = 4 },
   { .name = "wifi_mode", .minval = 0, .maxval = 1 },
   { .name = "wpd_enabled", .minval = 0, .maxval = 1 },
+  { .name = "di_type", .minval = 0, .maxval = 2 },
+  { .name = "di_i2cport", .minval = 0, .maxval = 2 },
 };
 
 esp_err_t post_savesettings(httpd_req_t * req) {

@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "displays.h"
-#include "ssd1306.h"
+#include "ssd130x.h"
 #include "sdkconfig.h"
 #include "settings.h"
 
@@ -18,7 +18,7 @@ void di_init(void)
 {
     /* For now this is all hardcoded because we only support exactly
      * one type of display - FIXME */
-    ssd1306_init();
+    ssd130x_init();
 }
 
 /* Initialize a new display buffer for drawing onto. */
@@ -58,7 +58,7 @@ void di_freedispbuf(struct di_dispbuf * db)
 /* send display buffer to the configured display (if any) */
 void di_display(struct di_dispbuf * db)
 {
-    ssd1306_display(db);
+    ssd130x_display(db);
 }
 
 /* set a pixel */

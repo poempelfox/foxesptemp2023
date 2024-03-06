@@ -60,7 +60,11 @@ struct di_dispbuf * db; /* Our main display buffer (we currently only use one) *
 #define PAGE_HUM   1
 #define PAGE_PRESS 2
 #define PAGE_CO2   3
-#define MAXDISPPAGES 4
+#define PAGE_PM010 4
+#define PAGE_PM025 5
+#define PAGE_PM040 6
+#define PAGE_PM100 7
+#define MAXDISPPAGES 8
 uint32_t ispageenabled = 0;
 
 /* we need this to display our IP, it is in network.c */
@@ -103,10 +107,16 @@ void dodisplayupdate(void)
       }
       if (settings.lps35hw_i2cport > 0) { ispageenabled |= 1 << PAGE_PRESS; }
       if (settings.scd41_i2cport > 0) { ispageenabled |= 1 << PAGE_CO2; }
+      if (settings.sen50_i2cport > 0) {
+        /* we display only 2 of the 4 values we have, the others don't add much
+         * in terms of information but use way too much screen time and space. */
+        ispageenabled |= 1 << PAGE_PM010;
+        ispageenabled |= 1 << PAGE_PM100;
+      }
     } else { /* curdisppage >= 0 - show values. */
       uint8_t label[30]; uint8_t value[20]; uint8_t unit[20];
       label[0] = 0; value[0] = 0; unit[0] = 0;
-      if (curdisppage == 0) { /* Show temp */
+      if (curdisppage == PAGE_TEMP) { /* Show temp */
         strcpy(label, "Temperatur"); // we might want to translate this.
         if (isnan(evs[activeevs].temp)) {
           strcpy(value, "-.--");
@@ -114,7 +124,7 @@ void dodisplayupdate(void)
           sprintf(value, "%.2f", evs[activeevs].temp);
         }
         sprintf(unit, "%cC", 176);
-      } else if (curdisppage == 1) { /* Show humidity */
+      } else if (curdisppage == PAGE_HUM) { /* Show humidity */
         strcpy(label, "Luftfeuchtigkeit");
         if (isnan(evs[activeevs].hum)) {
           strcpy(value, "-.--");
@@ -122,7 +132,7 @@ void dodisplayupdate(void)
           sprintf(value, "%.2f", evs[activeevs].hum);
         }
         strcpy(unit, "%");
-      } else if (curdisppage == 2) { /* Show pressure */
+      } else if (curdisppage == PAGE_PRESS) { /* Show pressure */
         strcpy(label, "Luftdruck");
         if (isnan(evs[activeevs].press)) {
           strcpy(value, "---.--");
@@ -130,7 +140,7 @@ void dodisplayupdate(void)
           sprintf(value, "%.2f", evs[activeevs].press);
         }
         strcpy(unit, "hPa");
-      } else if (curdisppage == 3) { /* Show CO2 */
+      } else if (curdisppage == PAGE_CO2) { /* Show CO2 */
         sprintf(label, "CO%c", 178);
         if (evs[activeevs].co2 == 0xffff) { /* Invalid */
           strcpy(value, "----");
@@ -138,6 +148,28 @@ void dodisplayupdate(void)
           sprintf(value, "%u", evs[activeevs].co2);
         }
         strcpy(unit, "ppm");
+      } else if ((curdisppage == PAGE_PM010)
+              || (curdisppage == PAGE_PM025)
+              || (curdisppage == PAGE_PM040)
+              || (curdisppage == PAGE_PM100)) { /* Show particulate matter */
+        strcpy(label, "Feinstaub PM 1.0");
+        float fv = evs[activeevs].pm010;
+        if (curdisppage == PAGE_PM025) {
+          strcpy(label, "Feinstaub PM 2.5");
+          fv = evs[activeevs].pm025;
+        } else if (curdisppage == PAGE_PM040) {
+          strcpy(label, "Feinstaub PM 4.0");
+          fv = evs[activeevs].pm040;
+        } else if (curdisppage == PAGE_PM100) {
+          strcpy(label, "Feinstaub PM 10");
+          fv = evs[activeevs].pm100;
+        }
+        if (isnan(fv)) {
+          strcpy(value, "--.-");
+        } else {
+          sprintf(value, "%.1f", fv);
+        }
+        sprintf(unit, "%cg/m%c", 181, 179);
       }
       /* Center the label */
       int xpos = di_calctextcenter(&font_terminus16bold, 0, db->sizex - 1, label);

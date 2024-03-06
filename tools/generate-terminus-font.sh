@@ -128,14 +128,19 @@ for c in "!" "\"" "#" "\$" "%" "&" "'" "(" ")" "*" "+" "," "-" "." "/" \
          "[" "\\\\" "]" "^" "_" "\`" \
          a b c d e f g h i j k l m n o p q r s t u v w x y z \
          "{" "|" "}" "~" \
-         $'\xc2\xb0' $'\xc2\xb2'
+         $'\xc2\xb0' $'\xc2\xb2' $'\xc2\xb3' $'\xc2\xb5'
 do
   let "offset=offset+1"
-  if [ "$c" == $'\xc2\xb0' ] ; then
-    # This will not return a valid code with the default case
+  # The first few are exceptions that just will not return a valid
+  # code with the default case
+  if [ "$c" == $'\xc2\xb0' ] ; then # degree
     ord="176"
-  elif [ "$c" == $'\xc2\xb2' ] ; then
+  elif [ "$c" == $'\xc2\xb2' ] ; then # superscript 2
     ord="178"
+  elif [ "$c" == $'\xc2\xb3' ] ; then # superscript 3
+    ord="179"
+  elif [ "$c" == $'\xc2\xb5' ] ; then # micro
+    ord="181"
   else
     ord=`LC_CTYPE=C printf '%d' "'$c"`
   fi

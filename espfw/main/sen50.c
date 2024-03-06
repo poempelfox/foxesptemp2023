@@ -36,22 +36,28 @@ void sen50_startmeas(void)
 {
     if (settings.sen50_i2cport == 0) return;
     uint8_t cmd[2] = { 0x00, 0x21 };
-    i2c_master_write_to_device(sen50i2cport, SEN50ADDR,
-                               cmd, sizeof(cmd),
-                               I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
-    /* We ignore the return value. If that failed, we'll notice
-     * soon enough, namely when we try to read the result... */
+    esp_err_t res = i2c_master_write_to_device(sen50i2cport, SEN50ADDR,
+                                               cmd, sizeof(cmd),
+                                               I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+    if (res != ESP_OK) {
+      ESP_LOGE("sen50.c", "ERROR: sending start-measurement-command to SEN50 failed with error '%s'.",
+                          esp_err_to_name(res));
+      return;
+    }
 }
 
 void sen50_stopmeas(void)
 {
     if (settings.sen50_i2cport == 0) return;
     uint8_t cmd[2] = { 0x01, 0x04 };
-    i2c_master_write_to_device(sen50i2cport, SEN50ADDR,
-                               cmd, sizeof(cmd),
-                               I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
-    /* We ignore the return value. If that failed, we'll notice
-     * soon enough, namely when we try to read the result... */
+    esp_err_t res = i2c_master_write_to_device(sen50i2cport, SEN50ADDR,
+                                               cmd, sizeof(cmd),
+                                               I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+    if (res != ESP_OK) {
+      ESP_LOGE("sen50.c", "ERROR: sending stop-measurement-command to SEN50 failed with error '%s'.",
+                          esp_err_to_name(res));
+      return;
+    }
 }
 
 /* This function is based on Sensirons example code and datasheet
@@ -98,7 +104,8 @@ void sen50_read(struct sen50data * d)
                                           readbuf, sizeof(readbuf),
                                           I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
     if (res != ESP_OK) {
-      ESP_LOGE("sen50.c", "ERROR: I2C-read from SEN50 failed.");
+      ESP_LOGE("sen50.c", "ERROR: I2C-read from SEN50 failed with error '%s'.",
+                          esp_err_to_name(res));
       return;
     }
     /* Check CRC */

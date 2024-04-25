@@ -8,6 +8,7 @@
 #include <esp_netif.h>
 #include <esp_ota_ops.h>
 #include <esp_random.h>
+#include <esp_timer.h>
 #include <nvs_flash.h>
 #include <time.h>
 #include "settings.h"
@@ -238,7 +239,9 @@ esp_err_t get_startpage_handler(httpd_req_t * req) {
   if (settings.lps35hw_i2cport > 0) { // LPS35HW is enabled
     pfp += sprintf(pfp, "<tr><th>Pressure (hPa)</th><td id=\"press\">%.3f</td></tr>", evs[e].press);
   }
-  pfp += sprintf(pfp, "<tr><th>Rain (mm/min)</th><td id=\"raing\">%.2f</td></tr>", evs[e].raing);
+  if (settings.rg15_serport > 0) {
+    pfp += sprintf(pfp, "<tr><th>Rain (mm/min)</th><td id=\"raing\">%.2f</td></tr>", evs[e].raing);
+  }
   if (settings.scd41_i2cport > 0) { // SCD41 is enabled
     if (evs[e].co2 == 0xffff) { // Invalid - note that we cannot simply rely on
       // NAN being printed as NaN as with the other values because it's not a float.
@@ -285,7 +288,9 @@ esp_err_t get_json_handler(httpd_req_t * req) {
   if (settings.lps35hw_i2cport > 0) { // LPS35HW is enabled
     pfp += sprintf(pfp, "\"press\":\"%.3f\",", evs[e].press);
   }
-  pfp += sprintf(pfp, "\"raing\":\"%.2f\",", evs[e].raing);
+  if (settings.rg15_serport > 0) {
+    pfp += sprintf(pfp, "\"raing\":\"%.2f\",", evs[e].raing);
+  }
   if (settings.scd41_i2cport > 0) { // SCD41 is enabled
     if (evs[e].co2 == 0xffff) {
       pfp += sprintf(pfp, "%s", "\"co2\":\"nan\",");
@@ -325,14 +330,24 @@ esp_err_t get_publicdebug_handler(httpd_req_t * req) {
   } else {
     pfp += sprintf(pfp, "<li>Failed to get IPv4 address information :(</li>");
   }
-  esp_ip6_addr_t v6addrs[CONFIG_LWIP_IPV6_NUM_ADDRESSES + 5];
+  esp_ip6_addr_t v6addrs[CONFIG_LWIP_IPV6_NUM_ADDRESSES + 2];
   int nv6ips = esp_netif_get_all_ip6(mainnetif, v6addrs);
-  for (int i = 0; i < nv6ips; i++) {
-    pfp += sprintf(pfp, "<li>IPv6: " IPV6STR "</li>",
-           IPV62STR(v6addrs[i]));
+  if (nv6ips > 0) {
+    for (int i = 0; i < nv6ips; i++) {
+      pfp += sprintf(pfp, "<li>IPv6: " IPV6STR "</li>",
+             IPV62STR(v6addrs[i]));
+    }
+  } else {
+    pfp += sprintf(pfp, "<li>No IPv6 addresses, not even link-local :(</li>");
   }
   pfp += sprintf(pfp, "</ul>");
   pfp += sprintf(pfp, "Last reset reason: %d<br>", esp_reset_reason());
+  int64_t ts = esp_timer_get_time() / 1000000;;
+  pfp += sprintf(pfp, "Uptime: %lld days, ", (ts / 86400));
+  ts = ts % 86400;
+  pfp += sprintf(pfp, "%02lld:", (ts / 3600));
+  ts = ts % 3600;
+  pfp += sprintf(pfp, "%02lld:%02lld<br>", (ts / 60), (ts % 60));
   /* The following line is the default und thus redundant. */
   httpd_resp_set_status(req, "200 OK");
   httpd_resp_set_type(req, "text/html; charset=utf-8");
@@ -472,7 +487,7 @@ esp_err_t get_adminmenu_handler(httpd_req_t * req) {
     pfp += sprintf(pfp, "<option value=\"0\"%s>Access Point</option>", ((curs == 0) ? " selected" : ""));
     pfp += sprintf(pfp, "<option value=\"1\"%s>Client</option>", ((curs == 1) ? " selected" : ""));
     pfp += sprintf(pfp, "%s", "</select></td></tr><tr><th colspan=\"2\">For AccessPoint-Mode:</th></tr>");
-    pfp += sprintf(pfp, "%s", "<tr><th><label for=\"wifi_ap_ssid\">WiFi SSID:</label></th><td>");
+    pfp += sprintf(pfp, "%s", "<tr><th><label for=\"wifi_ap_ssid\">WiFi SSID (also used as hostname in client mode):</label></th><td>");
     getstrsetting(nvshandle, "wifi_ap_ssid", tmp1, sizeof(tmp1));
     if (strlen(tmp1) == 0) { // for this setting, if there is no setting in flash,
       // we will as an exception take the currently active value (which will be

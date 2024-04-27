@@ -27,6 +27,9 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
             ESP_LOGI("network.c", "WiFi Connected: channel %u bssid %02x%02x%02x%02x%02x%02x",
                            ev_co->channel, ev_co->bssid[0], ev_co->bssid[1], ev_co->bssid[2],
                            ev_co->bssid[3], ev_co->bssid[4], ev_co->bssid[5]);
+            /* This not only enables the linklocal address, but it also causes
+             * the ESP to accept the addresses from route advertisements. */
+            esp_netif_create_ip6_linklocal(mainnetif);
             break;
         case WIFI_EVENT_STA_DISCONNECTED:
             ESP_LOGI("network.c", "WiFi Disconnected: reason %u", ev_dc->reason);
@@ -83,7 +86,8 @@ void network_prepare(void)
     network_event_group = xEventGroupCreate();
     if (settings.wifi_mode == WIFIMODE_CL) { /* client */
       mainnetif = esp_netif_create_default_wifi_sta();
-      esp_netif_set_hostname(mainnetif, "eltersdorftemp");
+      // to avoid having to use another setting, we just reuse the AP name as the client hostname
+      esp_netif_set_hostname(mainnetif, settings.wifi_ap_ssid);
       wifi_init_config_t wicfg = WIFI_INIT_CONFIG_DEFAULT();
       ESP_ERROR_CHECK(esp_wifi_init(&wicfg));
       ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
@@ -92,7 +96,6 @@ void network_prepare(void)
       ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &got_ip_event_handler, NULL));
       ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_LOST_IP, &got_ip_event_handler, NULL));
       ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_GOT_IP6, &got_ip_event_handler, NULL));
-
       wifi_config_t wc = {
         .sta = {
           .threshold.authmode = WIFI_AUTH_WPA2_PSK

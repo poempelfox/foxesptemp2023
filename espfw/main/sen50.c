@@ -134,6 +134,13 @@ void sen50_read(struct sen50data * d)
     d->pm025raw = (readbuf[3] << 8) | readbuf[4];
     d->pm040raw = (readbuf[6] << 8) | readbuf[7];
     d->pm100raw = (readbuf[9] << 8) | readbuf[10];
+    /* Check for 0xffff, as that is the poweron-value of the register,
+     * and never a valid reading. */
+    if ((d->pm010raw == 0xffff) || (d->pm025raw == 0xffff)
+     || (d->pm040raw == 0xffff) || (d->pm100raw == 0xffff)) {
+      ESP_LOGE("sen50.c", "ERROR: poweron-value in data register.");
+      return;
+    }
     d->pm010 = ((float)d->pm010raw / 10.0);
     d->pm025 = ((float)d->pm025raw / 10.0);
     d->pm040 = ((float)d->pm040raw / 10.0);

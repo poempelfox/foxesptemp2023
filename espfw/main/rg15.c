@@ -31,8 +31,15 @@ void rg15_init(void)
     // Configure UART parameters - we're using UART1 because that is all we have really.
     ESP_ERROR_CHECK(uart_driver_install(UART_NUM_1, 200, 200, 5, &rainsens_comm_handle, 0));
     ESP_ERROR_CHECK(uart_param_config(UART_NUM_1, &rainsens_serial_config));
-    // TX on GPIO25, RX on GPIO26
-    ESP_ERROR_CHECK(uart_set_pin(UART_NUM_1, settings.ser_1_tx, settings.ser_1_rx, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
+    /* as "0" means disabled but 0 is also a valid pin number, the pin number
+     * is shifted by 1 in the settings variable - we need to subtract 1 to get
+     * the real pin number. */
+    esp_err_t e =  uart_set_pin(UART_NUM_1, settings.ser_1_tx - 1, settings.ser_1_rx - 1, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+    if (e != ESP_OK) {
+      ESP_LOGE("rg15.c", "ERROR: Serial pins failed to initialize. force disabling RG15.");
+      settings.rg15_serport = 0;
+      return;
+    }
     /* Tell the rainsensor we want polling mode, a.k.a. "shut up until you're spoken to".
      * Also, use high res mode and metrical output, disable 
      * tipping-bucket-output, and reset counters. */

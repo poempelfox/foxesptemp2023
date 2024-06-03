@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "settings.h"
-#include "secrets.h"
+#include "defaultwifiappw.h"
 
 struct globalsettings settings;
 

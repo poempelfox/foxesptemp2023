@@ -19,31 +19,31 @@ As of May 2024 this is working quite well. Multiple units with this firmware hav
 * Simple web-interface that can show you the current measurements. The measurements are also available as a JSON-file under the URL `/json`, for automatic processing of these measurements.
 * password-protected admin-webinterface, where you can configure everything. This firmware does not have any compiled in settings, everything is set up through that admin interface, including but not limited to what sensors you have, and on which I/O-pins of the ESP they are connected.
 * Over-The-Air (OTA) firmware-updates with support for rollback in the case of problems
-** Note that new firmware cannot be directly uploaded through the webbrowser, but instead you have to put the file on a HTTPS-server that the ESP can reach, and then tell it (in the admin-webinterface) to update its firmware from that URL.
-** After a new firmware has been flashed, the ESP32 will boot into that firmware. If the firmware works fine, you can log into the admin-webinterface, and mark the new firmware as "good". Only then will the new firmware become permanent. Otherwise, on the next reset/reboot, the previous firmware will automatically be restored.
+  - Note that new firmware cannot be directly uploaded through the webbrowser, but instead you have to put the file on a HTTPS-server that the ESP can reach, and then tell it (in the admin-webinterface) to update its firmware from that URL.
+  - After a new firmware has been flashed, the ESP32 will boot into that firmware. If the firmware works fine, you can log into the admin-webinterface, and mark the new firmware as "good". Only then will the new firmware become permanent. Otherwise, on the next reset/reboot, the previous firmware will automatically be restored.
 * Support for a number of different sensors.
-** Please note that you can only connect one of each sensor-type. For example, you cannot connect two temperature-sensors.
-** However, there is no limitation on the number of different sensor-types that you can connect.
+  - Please note that you can only connect one of each sensor-type. For example, you cannot connect two temperature-sensors.
+  - However, there is no limitation on the number of different sensor-types that you can connect.
 * Supported sensor-types
-** SHT4x (e.g. SHT41 / SHT45) temperature/humidity sensor
-** SEN50 particulate matter sensor
-** SCD41 CO2-sensor
-** LPS35HW pressure sensor
-** RG15 rain sensor
+  - SHT4x (e.g. SHT41 / SHT45) temperature/humidity sensor
+  - SEN50 particulate matter sensor
+  - SCD41 CO2-sensor
+  - LPS35HW pressure sensor
+  - RG15 rain sensor
 * Support for a local display to show the measured values.
 * Supported display-types
-** ...
+  - ...
 
 
 ## Planned features
 
 * Support for further sensor types
-** SGP40
+  - SGP40
 * Support for further display types
 * Submitting data to more online services.
-** opensensemap
-** support for sensor.community (or madavi) is not planned, because they give the impression they do not want to collect any measurements not stemming from one of their sensors. Unless you lie to the API that you're a sensor.community-sensor, your measurements either get silently dropped, or refused with an error message.
-** "custom own"
+  - opensensemap
+  - support for sensor.community (or madavi) is not planned, because they give the impression they do not want to collect any measurements not stemming from one of their sensors. Unless you lie to the API that you're a sensor.community-sensor, your measurements either get silently dropped, or refused with an error message.
+  - "custom own"
 
 ## How to use
 
@@ -53,10 +53,10 @@ As of May 2024 this is working quite well. Multiple units with this firmware hav
 * Flash the firmware to the ESP. I will not go into further detail on how to achieve this.
 * Solder or otherwise connect your sensors and display (if any) to the ESP32.
 * Configure the firmware on the ESP.
-** Without any pre-existing configuration, the firmware will open up an access-point with a name like 'foxtempX', where X is the mac address of the ESP32. Note: If you did not follow the advice above to set an initial password, this is an open network, which means all data will be completely unencrypted. This may be fine if you do initial configuration in the middle of nowhere, where nobody else is in WiFi range, but otherwise, it is not a good idea.
-** Connect to that accesspoint with a laptop or smartphone
-** The webinterface on the ESP should be available under the URL [http://10.5.5.1](http://10.5.5.1) (note: HTTP, _not_ HTTPS).
-** Click on the "Admin Login" in the upper right corner. The default admin password is "admin".
-** Now change the settings as desired. Start with connectivity (you probably want this to connect to an existing accesspoint instead of opening its own) and admin password. Then configure the sensors.
-** Note that any and all changes only take effect after a Reboot. There is a 'reboot' button in the admin interface.
+  - Without any pre-existing configuration, the firmware will open up an access-point with a name like 'foxtempX', where X is the mac address of the ESP32. Note: If you did not follow the advice above to set an initial password, this is an open network, which means all data will be completely unencrypted. This may be fine if you do initial configuration in the middle of nowhere, where nobody else is in WiFi range, but otherwise, it is not a good idea.
+  - Connect to that accesspoint with a laptop or smartphone
+  - The webinterface on the ESP should be available under the URL [http://10.5.5.1](http://10.5.5.1) (note: HTTP, _not_ HTTPS).
+  - Click on the "Admin Login" in the upper right corner. The default admin password is "admin".
+  - Now change the settings as desired. Start with connectivity (you probably want this to connect to an existing accesspoint instead of opening its own) and admin password. Then configure the sensors.
+  - Note that any and all changes only take effect after a Reboot. There is a 'reboot' button in the admin interface.
 

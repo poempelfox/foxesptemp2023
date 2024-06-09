@@ -578,6 +578,14 @@ esp_err_t get_adminmenu_handler(httpd_req_t * req) {
     pfp += sprintf(pfp, "<option value=\"1\"%s>I2C 0</option>", ((curs == 1) ? " selected" : ""));
     pfp += sprintf(pfp, "<option value=\"2\"%s>I2C 1</option>", ((curs == 2) ? " selected" : ""));
     pfp += sprintf(pfp, "%s", "</select></td></tr>");
+    curs = getu8setting(nvshandle, "sgp40_i2cport");
+    pfp += sprintf(pfp, "%s", "<tr><th>SGP40</th><td>");
+    pfp += sprintf(pfp, "%s", "<label for=\"sgp40_i2cport\">I2C Port</label>:");
+    pfp += sprintf(pfp, "%s", "<select name=\"sgp40_i2cport\" id=\"sgp40_i2cport\">");
+    pfp += sprintf(pfp, "<option value=\"0\"%s>not connected</option>", ((curs == 0) ? " selected" : ""));
+    pfp += sprintf(pfp, "<option value=\"1\"%s>I2C 0</option>", ((curs == 1) ? " selected" : ""));
+    pfp += sprintf(pfp, "<option value=\"2\"%s>I2C 1</option>", ((curs == 2) ? " selected" : ""));
+    pfp += sprintf(pfp, "%s", "</select></td></tr>");
     curs = getu8setting(nvshandle, "sht4x_i2cport");
     pfp += sprintf(pfp, "%s", "<tr><th>SHT4x (SHT40/SHT41/SHT45)</th><td>");
     pfp += sprintf(pfp, "%s", "<label for=\"sht4x_i2cport\">I2C Port</label>:");
@@ -876,6 +884,7 @@ static const struct u8set_s u8sets[] = {
   { .name = "sen50_i2cport", .minval = 0, .maxval = 2 },
   { .name = "ser_1_rx", .minval = 0, .maxval = 64 },
   { .name = "ser_1_tx", .minval = 0, .maxval = 64 },
+  { .name = "sgp40_i2cport", .minval = 0, .maxval = 2 },
   { .name = "sht4x_addr", .minval = 0, .maxval = 2 },
   { .name = "sht4x_i2cport", .minval = 0, .maxval = 2 },
   { .name = "i2c_0_pullups", .minval = 0, .maxval = 1 },

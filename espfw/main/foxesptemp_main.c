@@ -23,6 +23,7 @@
 #include "scd41.h"
 #include "sen50.h"
 #include "settings.h"
+#include "sgp40.h"
 #include "sht4x.h"
 #include "submit.h"
 #include "webserver.h"
@@ -239,6 +240,7 @@ void app_main(void)
     scd41_startmeas();
     sen50_init();
     sen50_startmeas(); /* FIXME Perhaps we don't want this on all the time. */
+    sgp40_init();
     di_init();  /* Initialize display */
     db = di_newdispbuf();
     dodisplayupdate();
@@ -305,6 +307,7 @@ void app_main(void)
         lps35hw_startmeas();
         rg15_requestread();
         sht4x_startmeas();
+        sgp40_startmeasraw(25.0, 50.0);
         sleep_ms(1111); /* Slightly more than a second should be enough for all sensors */
         ESP_LOGI("main.c", "Reading sensors...");
         double press = lps35hw_readpressure();
@@ -315,6 +318,8 @@ void app_main(void)
         scd41_read(&co2data);
         struct sen50data pmdata;
         sen50_read(&pmdata);
+        struct sgp40data vocdata;
+        sgp40_read(&vocdata);
 
         int naevs = (activeevs == 0) ? 1 : 0;
         evs[naevs].lastupd = lastmeasts;
@@ -409,6 +414,10 @@ void app_main(void)
           evs[naevs].pm025 = NAN;
           evs[naevs].pm040 = NAN;
           evs[naevs].pm100 = NAN;
+        }
+
+        if (vocdata.valid > 0) {
+          ESP_LOGI(TAG, "VOC: raw %x", vocdata.vocraw);
         }
 
         /* Now mark the updated values as the current ones for the webserver */

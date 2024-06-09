@@ -48,6 +48,7 @@ struct globalsettings {
 	uint8_t scd41_i2cport;
 	uint8_t scd41_selfcal;
 	uint8_t sen50_i2cport;
+	uint8_t sgp40_i2cport;
 	uint8_t sht4x_addr; // offset to 0x44! see sht4x.c
 	uint8_t sht4x_i2cport;
 	/* On which serial port are the respective sensors? */

@@ -2,7 +2,7 @@
 set(COMPONENT_REQUIRES )
 set(COMPONENT_PRIV_REQUIRES )
 
-set(COMPONENT_SRCS "displays.c" "foxesptemp_main.c" "i2c.c" "lps35hw.c" "network.c" "rg15.c" "scd41.c" "sen50.c" "settings.c" "sht4x.c" "ssd130x.c" "submit.c" "webserver.c" "fonts/terminus13norm.c" "fonts/terminus16bold.c" "fonts/terminus38bold.c")
+set(COMPONENT_SRCS "displays.c" "foxesptemp_main.c" "i2c.c" "lps35hw.c" "network.c" "rg15.c" "scd41.c" "sen50.c" "settings.c" "sgp40.c" "sht4x.c" "ssd130x.c" "submit.c" "webserver.c" "fonts/terminus13norm.c" "fonts/terminus16bold.c" "fonts/terminus38bold.c")
 set(COMPONENT_ADD_INCLUDEDIRS "")
 set(COMPONENT_EMBED_TXTFILES "web/css.css.min"
                              "web/startpage.html.p00" "web/startpage.html.p01"

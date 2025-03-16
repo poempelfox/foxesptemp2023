@@ -12,15 +12,21 @@ set(COMPONENT_EMBED_TXTFILES "web/css.css.min"
 
 register_component()
 
-# FIXME: run this automatically always.
-#externalproject_add(webstuffmake
-#    PREFIX ${COMPONENT_DIR}
-#    SOURCE_DIR ${COMPONENT_DIR}/web
-#    CONFIGURE_COMMAND ""
-#    BUILD_IN_SOURCE 1
-#    BUILD_COMMAND make
-#    INSTALL_COMMAND ""
-#    )
+# Two commands should be run automatically on every build:
+# The first will call 'make' in the web directory to update
+# the split webpages if the source file changed.
+# The second will update the build number in version.txt,
+# so that it increases every time we call 'idf.py build'.
+# Should any of these commands cause problems, e.g. due
+# to missing dependencies, just comment them out.
+add_custom_target(do_always1 ALL
+                  WORKING_DIRECTORY "${COMPONENT_DIR}/web"
+                  COMMAND "make"
+                 )
+add_custom_target(do_always2 ALL
+                  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+                  COMMAND "${CMAKE_SOURCE_DIR}/updateversion.sh"
+                 )
 
 # Note that just using
 #target_compile_options(${COMPONENT_LIB} PRIVATE -funsigned-char)

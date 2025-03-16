@@ -98,8 +98,10 @@ void settings_hardcode(void) {
                            esp_err_to_name(e));
     return;
   }
-  nvs_set_str(nvshandle, "wifi_cl_ssid", "37C3-open");
+  nvs_set_u8(nvshandle, "wifi_mode", WIFIMODE_CL);
+  nvs_set_str(nvshandle, "wifi_cl_ssid", "38c3-open");
   nvs_set_str(nvshandle, "wifi_cl_pw", "");
+  nvs_commit(nvshandle);
   nvs_close(nvshandle);
 #endif
 }

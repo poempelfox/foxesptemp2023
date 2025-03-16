@@ -3,6 +3,7 @@
 #include <esp_log.h>
 #include <esp_http_client.h>
 #include <esp_crt_bundle.h>
+#include <esp_app_desc.h>
 #include "submit.h"
 #include "sdkconfig.h"
 #include "settings.h"
@@ -105,7 +106,9 @@ int submit_to_wpd(void)
     char post_data[800];
     /* Build the contents of the HTTP POST we will
      * send to wetter.poempelfox.de */
-    strcpy(post_data, "{\"software_version\":\"eltersdorftemp-0.1\",\"sensordatavalues\":[\n");
+    const esp_app_desc_t * appd = esp_app_get_description();
+    sprintf(post_data, "{\"software_version\":\"FoxESPTemp/%s\",\"sensordatavalues\":[\n",
+                       appd->version);
     int nvv = 0;
     for (int i = 0; i < ninqueue; i++) {
       if (nvv != 0) { strcat(post_data, ",\n"); }

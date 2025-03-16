@@ -47,16 +47,29 @@ As of May 2024 this is working quite well. Multiple units with this firmware hav
 
 ## How to use
 
-* Take an ESP32 devboard. This project was originally done with an "ESP32 Devkit C V4" from AZ-delivery, but many other types should work as well. If you want to use more exotic types, e.g. an ESP32-S2, you will have to change a few parameters before compiling, but otherwise nothing much should be required.
+* Take an ESP32 devboard.
+** As long as it is a normal ESP32 (NOT an ESP32-S2 or something like that) and has at least 4 MB of flash, chances are it will just work.
+** Known working boards include
+*** "ESP32 Devkit C V4" from AZ-delivery
+*** Waveshare E-Paper ESP32 driver board
+** If you want to use different ESP types, like an ESP32-S2, you _will_ have to change a few parameters, like the target type, before compiling, but with a bit of luck no code changes should be required.
 * Set a password for the WiFi AP that the firmware will open in the file `espfw/main/defaultwifiappw.h`
 * Compile the firmware contained in this repository under the directory `espfw` with ESP-IDF. I will not go into further detail on how to achieve this.
 * Flash the firmware to the ESP. I will not go into further detail on how to achieve this.
 * Solder or otherwise connect your sensors and display (if any) to the ESP32.
-* Configure the firmware on the ESP.
-  - Without any pre-existing configuration, the firmware will open up an access-point with a name like 'foxtempX', where X is the mac address of the ESP32. Note: If you did not follow the advice above to set an initial password, this is an open network, which means all data will be completely unencrypted. This may be fine if you do initial configuration in the middle of nowhere, where nobody else is in WiFi range, but otherwise, it is not a good idea.
-  - Connect to that accesspoint with a laptop or smartphone
-  - The webinterface on the ESP should be available under the URL [http://10.5.5.1](http://10.5.5.1) (note: HTTP, _not_ HTTPS).
-  - Click on the "Admin Login" in the upper right corner. The default admin password is "admin".
-  - Now change the settings as desired. Start with connectivity (you probably want this to connect to an existing accesspoint instead of opening its own) and admin password. Then configure the sensors.
-  - Note that any and all changes only take effect after a Reboot. There is a 'reboot' button in the admin interface.
+* Configure the firmware on the ESP. There are two main ways to accomplish this:
+  - Through WiFi
+    + Without any pre-existing configuration, the firmware will open up an access-point with a name like 'foxtempX', where X is the mac address of the ESP32. Note: If you did not follow the advice above to set an initial password, this is an open network, which means all data will be completely unencrypted. This may be fine if you do initial configuration in the middle of nowhere, where nobody else is in WiFi range, but otherwise, it is not a good idea.
+    + Connect to that accesspoint with a laptop or smartphone
+    + The webinterface on the ESP should be available under the URL [http://10.5.5.1](http://10.5.5.1) (note: HTTP, _not_ HTTPS).
+    + Click on the "Admin Login" in the upper right corner. The default admin password is "admin".
+    + Now change the settings as desired. Start with connectivity (you probably want this to connect to an existing accesspoint instead of opening its own) and admin password. Then configure the sensors.
+    + Note that any and all changes only take effect after a Reboot. There is a 'reboot' button in the admin interface.
+  - Through the serial console
+    + Unless support for serial console wasn't compiled in, you can just use the console to enter commands and do basic configuration in that way. I would recommend to set only critical information like WiFi credentials or the admin password this way, as the console commands do not do any sanity checking and will permit you to set anything. Configuration like the type of sensors should be done through the webinterface.
+    + `nvs_set_u8 wifi_mode 1` (1 for client mode, 0 for access-point mode)
+    + `nvs_set_str wifi_cl_ssid YOURSSID` (or wifi_ap_ssid if you try to configure an accesspoint)
+    + `nvs_set_str wifi_cl_pw YOURWIFIPASSWORD`
+    + `nvs_set_str adminpw YOURNEWADMINPASSWORD`
+    + note that everything will only take effect after a reboot, e.g. with command `restart`
 

@@ -15,6 +15,7 @@
 #include <esp_ota_ops.h>
 #include <math.h>
 #include <esp_netif.h>
+#include "console.h"
 #include "displays.h"
 #include "i2c.h"
 #include "lps35hw.h"
@@ -272,6 +273,9 @@ void app_main(void)
         pendingfwverify = 1;
       }
     }
+
+    /* Initialize the console (if any, otherwise this is a noop) */
+    console_init();
 
     /* Start up the webserver */
     webserver_start();

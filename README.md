@@ -10,6 +10,8 @@ For very obvious reasons, it uses an order of magnitude more power than the AVR 
 
 On the plus side, this does have a webinterface, and it is quite flexible with regard to what sensors you connect to what pin. It can also submit values to servers on the internet on its own.
 
+<img src="docs/exampleconfig1.jpg" alt="An example of a FoxESPTemp device. A standard ESP32 DevKit is connected with wires to a SHT45 temperature and humidity sensor, a SCD41 CO2 sensor, and an OLED display." width="1200">
+
 ## Status
 
 As of May 2024 this is working quite well. Multiple units with this firmware have been deployed by now, using a varying set of sensors.
@@ -48,11 +50,11 @@ As of May 2024 this is working quite well. Multiple units with this firmware hav
 ## How to use
 
 * Take an ESP32 devboard.
-** As long as it is a normal ESP32 (NOT an ESP32-S2 or something like that) and has at least 4 MB of flash, chances are it will just work.
-** Known working boards include
-*** "ESP32 Devkit C V4" from AZ-delivery
-*** Waveshare E-Paper ESP32 driver board
-** If you want to use different ESP types, like an ESP32-S2, you _will_ have to change a few parameters, like the target type, before compiling, but with a bit of luck no code changes should be required.
+  - As long as it is a normal ESP32 (NOT an ESP32-S2 or something like that) and has at least 4 MB of flash, chances are it will just work.
+  - Known working boards include
+    + "ESP32 Devkit C V4" from AZ-delivery
+    + Waveshare E-Paper ESP32 driver board
+  - If you want to use different ESP types, like an ESP32-S2, you _will_ have to change a few parameters, like the target type, before compiling, but with a bit of luck no code changes should be required.
 * Set a password for the WiFi AP that the firmware will open in the file `espfw/main/defaultwifiappw.h`
 * Compile the firmware contained in this repository under the directory `espfw` with ESP-IDF. I will not go into further detail on how to achieve this.
 * Flash the firmware to the ESP. I will not go into further detail on how to achieve this.

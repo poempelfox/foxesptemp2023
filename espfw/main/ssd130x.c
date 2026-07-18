@@ -1,7 +1,8 @@
 /* Talking to SSD130x based displays (e.g. SSD1306 and SSD1309) */
 
-#include <driver/i2c.h>
+#include <driver/i2c_master.h>
 #include <esp_log.h>
+#include "i2c.h"
 #include "ssd130x.h"
 #include "sdkconfig.h"
 #include "settings.h"
@@ -10,8 +11,7 @@
 
 #define I2C_MASTER_TIMEOUT_MS 1000  /* Timeout for I2C communication */
 
-static i2c_port_t ssd130xi2cport;
-static uint8_t ssd130xaddr; /* the final calculated address, (BASEADDR + offset) */
+static i2c_master_dev_handle_t ssd130xi2cdev;
 
 /* A very short summary of the protocol the display uses:
  * After addressing the display, there is always a 'control' byte, which
@@ -28,8 +28,8 @@ static void ssd130x_sendcommand1(uint8_t cmd)
     uint8_t tosend[2];
     tosend[0] = CONTROL_NOCO | CONTROL_CMD;
     tosend[1] = cmd;
-    i2c_master_write_to_device(ssd130xi2cport, ssd130xaddr, tosend, 2,
-                               I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+    i2c_master_transmit(ssd130xi2cdev, tosend, 2,
+                        I2C_MASTER_TIMEOUT_MS);
 }
 
 /* Send a 2 byte command */
@@ -39,8 +39,8 @@ static void ssd130x_sendcommand2(uint8_t cmd1, uint8_t cmd2)
     tosend[0] = CONTROL_NOCO | CONTROL_CMD;
     tosend[1] = cmd1;
     tosend[2] = cmd2;
-    i2c_master_write_to_device(ssd130xi2cport, ssd130xaddr, tosend, 3,
-                               I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+    i2c_master_transmit(ssd130xi2cdev,tosend, 3,
+                        I2C_MASTER_TIMEOUT_MS);
 }
 
 /* Send a 3 byte command */
@@ -51,8 +51,8 @@ static void ssd130x_sendcommand3(uint8_t cmd1, uint8_t cmd2, uint8_t cmd3)
     tosend[1] = cmd1;
     tosend[2] = cmd2;
     tosend[3] = cmd3;
-    i2c_master_write_to_device(ssd130xi2cport, ssd130xaddr, tosend, 4,
-                               I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+    i2c_master_transmit(ssd130xi2cdev, tosend, 4,
+                        I2C_MASTER_TIMEOUT_MS);
 }
 
 /* returns 1 if the display is one of the types we support, 0 otherwise. */
@@ -79,13 +79,20 @@ void ssd130x_init(void)
       }
     }
     if (settings.di_i2cport == 0) return;
-    ssd130xi2cport = ((settings.di_i2cport == 1) ? I2C_NUM_0 : I2C_NUM_1);
 #if 0 /* FIXME setting not implemented yet */
-    ssd130xaddr = SSD130XBASEADDR + settings.ssd130x_addr;
+    uint8_t ssd130xaddr = SSD130XBASEADDR + settings.ssd130x_addr;
 #else
     /* Hardcoded settings for now. */
-    ssd130xaddr = SSD130XBASEADDR + 0;
+    uint8_t ssd130xaddr = SSD130XBASEADDR + 0;
 #endif
+    i2c_device_config_t dc = {
+      .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+      .device_address = ssd130xaddr,
+      .scl_speed_hz = i2c_settingtoi2cclock(settings.i2c_n_speed[settings.di_i2cport - 1])
+    };
+    if (i2c_master_bus_add_device(i2c_bushandles[settings.di_i2cport - 1], &dc, &ssd130xi2cdev) != ESP_OK) {
+      ESP_LOGW("ssd130x.c", "WARNING: i2c_master_bus_add_device failed for SCD130x.");
+    }
 
     /* The initialization sequence is essentially copy+paste from the datasheet
      * of a Winstar WEA012864DWPP3N00003, and probably needs some tweaking
@@ -130,6 +137,7 @@ void ssd130x_display(struct di_dispbuf * db)
     if (ssd130x_isoneofours(settings.di_type) != 1) {
       return;
     }
+    if (settings.di_i2cport == 0) return;
     /* The display has a somewhat weird memory layout: Each byte in memory
      * addresses one column for 8 rows, with the LSB being (relative) row 0 and
      * the MSB being (relative) row 7. There are 8 "pages". Each page contains
@@ -165,7 +173,8 @@ void ssd130x_display(struct di_dispbuf * db)
         ESP_LOGI("debug-display", "%s", opb);
       }
 #endif
-      i2c_master_write_to_device(ssd130xi2cport, ssd130xaddr, sndbuf, 129,
-                                 I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+      i2c_master_transmit(ssd130xi2cdev, sndbuf, 129,
+                          I2C_MASTER_TIMEOUT_MS);
     }
 }
+

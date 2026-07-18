@@ -1,7 +1,8 @@
 /* Talking to SHT4x (SHT40, SHT41, SHT45) temperature / humidity sensors */
 
-#include <driver/i2c.h>
+#include <driver/i2c_master.h>
 #include <esp_log.h>
+#include "i2c.h"
 #include "sht4x.h"
 #include "sdkconfig.h"
 #include "settings.h"
@@ -15,8 +16,7 @@
 
 #define I2C_MASTER_TIMEOUT_MS 1000  /* Timeout for I2C communication */
 
-static i2c_port_t sht4xi2cport;
-static uint8_t sht4xaddr;
+static i2c_master_dev_handle_t sht4xi2cdev;
 
 void sht4x_init(void)
 {
@@ -30,8 +30,15 @@ void sht4x_init(void)
       }
     }
     if (settings.sht4x_i2cport == 0) return;
-    sht4xi2cport = ((settings.sht4x_i2cport == 1) ? I2C_NUM_0 : I2C_NUM_1);
-    sht4xaddr = SHT4XBASEADDR + settings.sht4x_addr;
+    uint8_t sht4xaddr = SHT4XBASEADDR + settings.sht4x_addr;
+    i2c_device_config_t dc = {
+      .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+      .device_address = sht4xaddr,
+      .scl_speed_hz = i2c_settingtoi2cclock(settings.i2c_n_speed[settings.sht4x_i2cport - 1])
+    };
+    if (i2c_master_bus_add_device(i2c_bushandles[settings.sht4x_i2cport - 1], &dc, &sht4xi2cdev) != ESP_OK) {
+      ESP_LOGW("sht4x.c", "WARNING: i2c_master_bus_add_device failed for SHT4x.");
+    }
 
     /* The default power-on-config of the sensor should
      * be perfectly fine for us, so there is nothing to
@@ -42,9 +49,9 @@ void sht4x_startmeas(void)
 {
     if (settings.sht4x_i2cport == 0) return;
     uint8_t cmd[1] = { SHT4X_CMD_MEASURE_HIGH };
-    i2c_master_write_to_device(sht4xi2cport, sht4xaddr,
-                               cmd, sizeof(cmd),
-                               pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS));
+    i2c_master_transmit(sht4xi2cdev,
+                        cmd, sizeof(cmd),
+                        I2C_MASTER_TIMEOUT_MS);
     /* We ignore the return value. If that failed, we'll notice
      * soon enough, namely when we try to read the result... */
 }
@@ -81,9 +88,9 @@ void sht4x_read(struct sht4xdata * d)
     d->valid = 0; d->tempraw = 0xffff;  d->humraw = 0xffff;
     d->temp = -999.99; d->hum = 200.0;
     if (settings.sht4x_i2cport == 0) return;
-    int res = i2c_master_read_from_device(sht4xi2cport, sht4xaddr,
-                                          readbuf, sizeof(readbuf),
-                                          I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+    int res = i2c_master_receive(sht4xi2cdev,
+                                 readbuf, sizeof(readbuf),
+                                 I2C_MASTER_TIMEOUT_MS);
     if (res != ESP_OK) {
       ESP_LOGE("sht4x.c", "ERROR: I2C-read from SHT4x failed.");
       return;
@@ -115,8 +122,8 @@ void sht4x_heatercycle(void)
     if (settings.sht4x_i2cport == 0) return;
     uint8_t cmd[1] = { SHT4X_CMD_HEAT_MID_LONG };
     ESP_LOGI("sht4x.c", "turning SHT4x heater on for 1.0 seconds at medium power (110 mW).");
-    i2c_master_write_to_device(sht4xi2cport, sht4xaddr,
-                               cmd, sizeof(cmd),
-                               I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+    i2c_master_transmit(sht4xi2cdev,
+                        cmd, sizeof(cmd),
+                        I2C_MASTER_TIMEOUT_MS);
 }
 

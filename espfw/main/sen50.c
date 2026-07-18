@@ -1,7 +1,10 @@
 /* Talking to SEN50 particulate matter sensors */
 
-#include <driver/i2c.h>
+#include <driver/i2c_master.h>
 #include <esp_log.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include "i2c.h"
 #include "sen50.h"
 #include "sdkconfig.h"
 #include "settings.h"
@@ -11,7 +14,7 @@
 
 #define I2C_MASTER_TIMEOUT_MS 100  /* Timeout for I2C communication */
 
-static i2c_port_t sen50i2cport;
+static i2c_master_dev_handle_t sen50i2cdev;
 
 void sen50_init(void)
 {
@@ -25,7 +28,14 @@ void sen50_init(void)
     }
   }
   if (settings.sen50_i2cport == 0) return;
-  sen50i2cport = ((settings.sen50_i2cport == 1) ? I2C_NUM_0 : I2C_NUM_1);
+  i2c_device_config_t dc = {
+    .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+    .device_address = SEN50ADDR,
+    .scl_speed_hz = i2c_settingtoi2cclock(settings.i2c_n_speed[settings.sen50_i2cport - 1])
+  };
+  if (i2c_master_bus_add_device(i2c_bushandles[settings.sen50_i2cport - 1], &dc, &sen50i2cdev) != ESP_OK) {
+    ESP_LOGW("sen50.c", "WARNING: i2c_master_bus_add_device failed for SEN50.");
+  }
 
   /* The default power-on-config of the sensor should
    * be perfectly fine for us, so there is nothing to
@@ -36,9 +46,9 @@ void sen50_startmeas(void)
 {
     if (settings.sen50_i2cport == 0) return;
     uint8_t cmd[2] = { 0x00, 0x21 };
-    esp_err_t res = i2c_master_write_to_device(sen50i2cport, SEN50ADDR,
-                                               cmd, sizeof(cmd),
-                                               I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+    esp_err_t res = i2c_master_transmit(sen50i2cdev,
+                                        cmd, sizeof(cmd),
+                                        I2C_MASTER_TIMEOUT_MS);
     if (res != ESP_OK) {
       ESP_LOGE("sen50.c", "ERROR: sending start-measurement-command to SEN50 failed with error '%s'.",
                           esp_err_to_name(res));
@@ -50,9 +60,9 @@ void sen50_stopmeas(void)
 {
     if (settings.sen50_i2cport == 0) return;
     uint8_t cmd[2] = { 0x01, 0x04 };
-    esp_err_t res = i2c_master_write_to_device(sen50i2cport, SEN50ADDR,
-                                               cmd, sizeof(cmd),
-                                               I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+    esp_err_t res = i2c_master_transmit(sen50i2cdev,
+                                        cmd, sizeof(cmd),
+                                        I2C_MASTER_TIMEOUT_MS);
     if (res != ESP_OK) {
       ESP_LOGE("sen50.c", "ERROR: sending stop-measurement-command to SEN50 failed with error '%s'.",
                           esp_err_to_name(res));
@@ -94,15 +104,15 @@ void sen50_read(struct sen50data * d)
     if (settings.sen50_i2cport == 0) return;
     uint8_t readbuf[23];
     uint8_t cmd[2] = { 0x03, 0xc4 };
-    i2c_master_write_to_device(sen50i2cport, SEN50ADDR,
-                               cmd, sizeof(cmd),
-                               I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+    i2c_master_transmit(sen50i2cdev,
+                        cmd, sizeof(cmd),
+                        I2C_MASTER_TIMEOUT_MS);
     /* Datasheet says we need to give the sensor at least 20 ms time before
      * we can read the data so that it can fill its internal buffers */
     vTaskDelay(pdMS_TO_TICKS(22));
-    int res = i2c_master_read_from_device(sen50i2cport, SEN50ADDR,
-                                          readbuf, sizeof(readbuf),
-                                          I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+    int res = i2c_master_receive(sen50i2cdev,
+                                 readbuf, sizeof(readbuf),
+                                 I2C_MASTER_TIMEOUT_MS);
     if (res != ESP_OK) {
       ESP_LOGE("sen50.c", "ERROR: I2C-read from SEN50 failed with error '%s'.",
                           esp_err_to_name(res));

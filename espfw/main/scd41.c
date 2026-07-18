@@ -1,7 +1,10 @@
 /* Talking to SCD41 CO2 sensors */
 
-#include <driver/i2c.h>
+#include <driver/i2c_master.h>
 #include <esp_log.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include "i2c.h"
 #include "scd41.h"
 #include "sdkconfig.h"
 #include "settings.h"
@@ -11,7 +14,7 @@
 
 #define I2C_MASTER_TIMEOUT_MS 100  /* Timeout for I2C communication */
 
-static i2c_port_t scd41i2cport;
+static i2c_master_dev_handle_t scd41i2cdev;
 
 void scd41_init(void)
 {
@@ -25,7 +28,14 @@ void scd41_init(void)
       }
     }
     if (settings.scd41_i2cport == 0) return;
-    scd41i2cport = ((settings.scd41_i2cport == 1) ? I2C_NUM_0 : I2C_NUM_1);
+    i2c_device_config_t dc = {
+      .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+      .device_address = SCD41ADDR,
+      .scl_speed_hz = i2c_settingtoi2cclock(settings.i2c_n_speed[settings.scd41_i2cport - 1])
+    };
+    if (i2c_master_bus_add_device(i2c_bushandles[settings.scd41_i2cport - 1], &dc, &scd41i2cdev) != ESP_OK) {
+      ESP_LOGW("scd41.c", "WARNING: i2c_master_bus_add_device failed for SCD41.");
+    }
 
     /* The default power-on-config of the sensor should
      * be perfectly fine for us, so there is not much to
@@ -37,9 +47,9 @@ void scd41_init(void)
       if (settings.scd41_selfcal == 1) {
         cmd[2] = 0x01;
       }
-      esp_err_t e = i2c_master_write_to_device(scd41i2cport, SCD41ADDR,
-                                               cmd, sizeof(cmd),
-                                               I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+      esp_err_t e = i2c_master_transmit(scd41i2cdev,
+                                        cmd, sizeof(cmd),
+                                        I2C_MASTER_TIMEOUT_MS);
       if (e == ESP_OK) {
         ESP_LOGI("scd41.c", "Told SCD41 to %s Automatic Self Calibration",
                             ((settings.scd41_selfcal == 1) ? "Enable" : "Disable"));
@@ -53,9 +63,9 @@ void scd41_startmeas(void)
 {
     if (settings.scd41_i2cport == 0) return;
     uint8_t cmd[2] = { 0x21, 0xac };
-    i2c_master_write_to_device(scd41i2cport, SCD41ADDR,
-                               cmd, sizeof(cmd),
-                               I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+    i2c_master_transmit(scd41i2cdev,
+                        cmd, sizeof(cmd),
+                        I2C_MASTER_TIMEOUT_MS);
     /* We ignore the return value. If that failed, we'll notice
      * soon enough, namely when we try to read the result... */
 }
@@ -64,9 +74,9 @@ void scd41_stopmeas(void)
 {
     if (settings.scd41_i2cport == 0) return;
     uint8_t cmd[2] = { 0x3f, 0x86 };
-    i2c_master_write_to_device(scd41i2cport, SCD41ADDR,
-                               cmd, sizeof(cmd),
-                               I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+    i2c_master_transmit(scd41i2cdev,
+                        cmd, sizeof(cmd),
+                        I2C_MASTER_TIMEOUT_MS);
     /* We ignore the return value. If that failed, we'll notice
      * soon enough, namely when we try to read the result... */
 }
@@ -105,15 +115,15 @@ void scd41_read(struct scd41data * d)
     if (settings.scd41_i2cport == 0) return;
     uint8_t readbuf[9];
     uint8_t cmd[2] = { 0xec, 0x05 };
-    i2c_master_write_to_device(scd41i2cport, SCD41ADDR,
-                               cmd, sizeof(cmd),
-                               I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+    i2c_master_transmit(scd41i2cdev,
+                        cmd, sizeof(cmd),
+                        I2C_MASTER_TIMEOUT_MS);
     /* Datasheet says we need to give the sensor at least 1 ms time before
      * we can read the data */
     vTaskDelay(pdMS_TO_TICKS(2));
-    int res = i2c_master_read_from_device(scd41i2cport, SCD41ADDR,
-                                          readbuf, sizeof(readbuf),
-                                          I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+    int res = i2c_master_receive(scd41i2cdev,
+                                 readbuf, sizeof(readbuf),
+                                 I2C_MASTER_TIMEOUT_MS);
     if (res != ESP_OK) {
       ESP_LOGE("scd41.c", "ERROR: I2C-read from SCD41 failed.");
       return;

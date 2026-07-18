@@ -7,7 +7,7 @@
 #include <esp_system.h>
 #include <esp_log.h>
 #include <driver/gpio.h>
-#include <driver/i2c.h>
+#include <driver/i2c_master.h>
 #include <soc/i2c_reg.h>
 #include <time.h>
 #include <esp_sntp.h>

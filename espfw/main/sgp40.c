@@ -1,7 +1,8 @@
 /* Talking to SGP40 VOC (volatile organic compounds) sensors */
 
-#include <driver/i2c.h>
+#include <driver/i2c_master.h>
 #include <esp_log.h>
+#include "i2c.h"
 #include "sgp40.h"
 #include "sdkconfig.h"
 #include "settings.h"
@@ -10,7 +11,7 @@
 
 #define I2C_MASTER_TIMEOUT_MS 1000  /* Timeout for I2C communication */
 
-static i2c_port_t sgp40i2cport;
+static i2c_master_dev_handle_t sgp40i2cdev;
 
 void sgp40_init(void)
 {
@@ -24,7 +25,14 @@ void sgp40_init(void)
       }
     }
     if (settings.sgp40_i2cport == 0) return;
-    sgp40i2cport = ((settings.sgp40_i2cport == 1) ? I2C_NUM_0 : I2C_NUM_1);
+    i2c_device_config_t dc = {
+      .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+      .device_address = SGP40ADDR,
+      .scl_speed_hz = i2c_settingtoi2cclock(settings.i2c_n_speed[settings.sgp40_i2cport - 1])
+    };
+    if (i2c_master_bus_add_device(i2c_bushandles[settings.sgp40_i2cport - 1], &dc, &sgp40i2cdev) != ESP_OK) {
+      ESP_LOGW("sgp40.c", "WARNING: i2c_master_bus_add_device failed for SGP40.");
+    }
 }
 
 /* This function is based on Sensirons example code and datasheet
@@ -67,9 +75,9 @@ void sgp40_startmeasraw(float temp, float hum)
     ESP_LOGI("sgp40.c", "Will send: (%02x %02x = cmd) (%02x %02x = hum) %02x (%02x %02x = temp) %02x",
                         cmd[0], cmd[1], cmd[2], cmd[3],
                         cmd[4], cmd[5], cmd[6], cmd[7]);
-    esp_err_t res = i2c_master_write_to_device(sgp40i2cport, SGP40ADDR,
-                                               cmd, sizeof(cmd),
-                                               pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS));
+    esp_err_t res = i2c_master_transmit(sgp40i2cdev,
+                                        cmd, sizeof(cmd),
+                                        I2C_MASTER_TIMEOUT_MS);
     if (res != ESP_OK) {
       ESP_LOGE("sgp40.c", "ERROR: sending start-measurement-command to SGP40 failed with error '%s'.",
                           esp_err_to_name(res));
@@ -82,9 +90,9 @@ void sgp40_read(struct sgp40data * d)
     uint8_t readbuf[3];
     d->valid = 0; d->vocraw = 0xffff;
     if (settings.sgp40_i2cport == 0) return;
-    int res = i2c_master_read_from_device(sgp40i2cport, SGP40ADDR,
-                                          readbuf, sizeof(readbuf),
-                                          I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+    int res = i2c_master_receive(sgp40i2cdev,
+                                 readbuf, sizeof(readbuf),
+                                 I2C_MASTER_TIMEOUT_MS);
     if (res != ESP_OK) {
       ESP_LOGE("sgp40.c", "ERROR: I2C-read from SGP40 failed with error '%s'.",
                           esp_err_to_name(res));

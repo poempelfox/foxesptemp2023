@@ -1,7 +1,8 @@
 /* Talking to the LPS35HW pressure sensor */
 
 #include <esp_log.h>
-#include <driver/i2c.h>
+#include <driver/i2c_master.h>
+#include "i2c.h"
 #include "lps35hw.h"
 #include "sdkconfig.h"
 #include "settings.h"
@@ -13,14 +14,13 @@
 #define LPS35HWBASEADDR 0x5c
 #define I2C_MASTER_TIMEOUT_MS 1000  /* Timeout for I2C communication */
 
-static i2c_port_t lps35hwi2cport;
-static uint8_t lps35hwaddr;
+static i2c_master_dev_handle_t lps35hwi2cdev;
 
 static esp_err_t lps35hw_register_read(uint8_t reg_addr, uint8_t *data, size_t len)
 {
-    return i2c_master_write_read_device(lps35hwi2cport, lps35hwaddr,
-                                        &reg_addr, 1, data, len,
-                                        pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS));
+    return i2c_master_transmit_receive(lps35hwi2cdev,
+                              &reg_addr, 1, data, len,
+                              I2C_MASTER_TIMEOUT_MS);
 }
 
 static esp_err_t lps35hw_register_write_byte(uint8_t reg_addr, uint8_t data)
@@ -28,9 +28,9 @@ static esp_err_t lps35hw_register_write_byte(uint8_t reg_addr, uint8_t data)
     int ret;
     uint8_t write_buf[2] = {reg_addr, data};
 
-    ret = i2c_master_write_to_device(lps35hwi2cport, lps35hwaddr,
-                                     write_buf, sizeof(write_buf),
-                                     pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS));
+    ret = i2c_master_transmit(lps35hwi2cdev,
+                              write_buf, sizeof(write_buf),
+                              I2C_MASTER_TIMEOUT_MS);
 
     return ret;
 }
@@ -47,8 +47,15 @@ void lps35hw_init(void)
       }
     }
     if (settings.lps35hw_i2cport == 0) return;
-    lps35hwi2cport = ((settings.sht4x_i2cport == 1) ? I2C_NUM_0 : I2C_NUM_1);
-    lps35hwaddr = LPS35HWBASEADDR + settings.lps35hw_addr;
+    uint8_t lps35hwaddr = LPS35HWBASEADDR + settings.lps35hw_addr;
+    i2c_device_config_t dc = {
+      .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+      .device_address = lps35hwaddr,
+      .scl_speed_hz = i2c_settingtoi2cclock(settings.i2c_n_speed[settings.lps35hw_i2cport - 1])
+    };
+    if (i2c_master_bus_add_device(i2c_bushandles[settings.lps35hw_i2cport - 1], &dc, &lps35hwi2cdev) != ESP_OK) {
+      ESP_LOGW("lps35hw.c", "WARNING: i2c_master_bus_add_device failed for LPS35H.");
+    }
 
     /* Configure the LPS35HW */
     /* Other than the LPS25HB which did NOT support a oneshot-mode

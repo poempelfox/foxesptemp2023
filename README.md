@@ -34,7 +34,7 @@ As of May 2024 this is working quite well. Multiple units with this firmware hav
   - RG15 rain sensor
 * Support for a local display to show the measured values.
 * Supported display-types
-  - ...
+  - two specific noname SCD1306/SCD1309 displays I had bought online
 
 
 ## Planned features
@@ -56,7 +56,7 @@ As of May 2024 this is working quite well. Multiple units with this firmware hav
     + Waveshare E-Paper ESP32 driver board
   - If you want to use different ESP types, like an ESP32-S2, you _will_ have to change a few parameters, like the target type, before compiling, but with a bit of luck no code changes should be required.
 * Set a password for the WiFi AP that the firmware will open in the file `espfw/main/defaultwifiappw.h`
-* Compile the firmware contained in this repository under the directory `espfw` with ESP-IDF. I will not go into further detail on how to achieve this.
+* Compile the firmware contained in this repository under the directory `espfw` with ESP-IDF version 6.0.x. I will not go into further detail on how to achieve this.
 * Flash the firmware to the ESP. I will not go into further detail on how to achieve this.
 * Solder or otherwise connect your sensors and display (if any) to the ESP32.
 * Configure the firmware on the ESP. There are two main ways to accomplish this:

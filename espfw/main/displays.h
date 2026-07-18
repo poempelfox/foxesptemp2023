@@ -67,11 +67,11 @@ void di_drawchar(struct di_dispbuf * db,
 void di_drawtext(struct di_dispbuf * db,
                  int x, int y, struct font * fo,
                  uint8_t r, uint8_t g, uint8_t b,
-                 uint8_t * txt);
+                 const uint8_t * txt);
 
 /* Tiny helper to calculate the x position where a text needs to
  * be put to appear centered between x1 and x2. */
-int di_calctextcenter(struct font * fo, int x1, int x2, uint8_t * txt);
+int di_calctextcenter(struct font * fo, int x1, int x2, const uint8_t * txt);
 
 #endif /* _DISPLAYS_H_ */
 

@@ -209,7 +209,7 @@ void di_drawchar(struct di_dispbuf * db,
 void di_drawtext(struct di_dispbuf * db,
                  int x, int y, struct font * fo,
                  uint8_t r, uint8_t g, uint8_t b,
-                 uint8_t * txt)
+                 const uint8_t * txt)
 {
     while (*txt != 0) {
       //ESP_LOGI(TAG, "Drawing character '%c' at %d/%d", *txt, x, y);
@@ -219,7 +219,7 @@ void di_drawtext(struct di_dispbuf * db,
     }
 }
 
-int di_calctextcenter(struct font * fo, int x1, int x2, uint8_t * txt)
+int di_calctextcenter(struct font * fo, int x1, int x2, const uint8_t * txt)
 {
     return x1 + ((x2 - x1 - ((int)strlen(txt) * (int)fo->width)) / 2);
 }

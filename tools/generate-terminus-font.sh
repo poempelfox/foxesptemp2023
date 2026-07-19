@@ -122,25 +122,46 @@ do
   fi
 done
 
+# the UTF8 codes in the last lines:
+# c2b0 degree sign; c2b2 superscript two; c2b3 superscript 3; c2b5 micro sign;
+# c2b1 plusminus sign; c384 Umlaut Ae; c396 Oe; c39c Ue;
+# c3a4 ae; c3b6 oe; c3bc ue;
+# they also require special-casing further down below.
 for c in "!" "\"" "#" "\$" "%" "&" "'" "(" ")" "*" "+" "," "-" "." "/" \
          0 1 2 3 4 5 6 7 8 9 ":" ";" "<" "=" ">" "?" "@" \
          A B C D E F G H I J K L M N O P Q R S T U V W X Y Z \
          "[" "\\\\" "]" "^" "_" "\`" \
          a b c d e f g h i j k l m n o p q r s t u v w x y z \
          "{" "|" "}" "~" \
-         $'\xc2\xb0' $'\xc2\xb2' $'\xc2\xb3' $'\xc2\xb5'
+         $'\xc2\xb0' $'\xc2\xb2' $'\xc2\xb3' $'\xc2\xb5' \
+         $'\xc2\xb1' $'\xc3\x84' $'\xc3\x96' $'\xc3\x9c' \
+         $'\xc3\xa4' $'\xc3\xb6' $'\xc3\xbc'
 do
   let "offset=offset+1"
   # The first few are exceptions that just will not return a valid
   # code with the default case
   if [ "$c" == $'\xc2\xb0' ] ; then # degree
-    ord="176"
+    ord="186" # mapping as in ISO-8859-15
   elif [ "$c" == $'\xc2\xb2' ] ; then # superscript 2
     ord="178"
   elif [ "$c" == $'\xc2\xb3' ] ; then # superscript 3
     ord="179"
   elif [ "$c" == $'\xc2\xb5' ] ; then # micro
     ord="181"
+  elif [ "$c" == $'\xc2\xb1' ] ; then # plusminus
+    ord="177"
+  elif [ "$c" == $'\xc3\x84' ] ; then # Umlaut Ae
+    ord="196"
+  elif [ "$c" == $'\xc3\x96' ] ; then # Umlaut Oe
+    ord="214"
+  elif [ "$c" == $'\xc3\x9c' ] ; then # Umlaut Ue
+    ord="220"
+  elif [ "$c" == $'\xc3\xa4' ] ; then # Umlaut ae
+    ord="228"
+  elif [ "$c" == $'\xc3\xb6' ] ; then # Umlaut oe
+    ord="246"
+  elif [ "$c" == $'\xc3\xbc' ] ; then # Umlaut ue
+    ord="252"
   else
     ord=`LC_CTYPE=C printf '%d' "'$c"`
   fi

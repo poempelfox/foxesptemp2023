@@ -125,7 +125,7 @@ void dodisplayupdate(void)
         } else {
           sprintf(value, "%.2f", evs[activeevs].temp);
         }
-        sprintf(unit, "%cC", 176);
+        sprintf(unit, "%cC", 186);
       } else if (curdisppage == PAGE_HUM) { /* Show humidity */
         strcpy(label, "Luftfeuchtigkeit");
         if (isnan(evs[activeevs].hum)) {
